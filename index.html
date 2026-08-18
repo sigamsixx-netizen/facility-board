@@ -196,31 +196,32 @@ function renderReadOnlyDashboard(){
           facLabelCell.rowSpan = nLanes;
           facRow.appendChild(facLabelCell);
         }
-        weekCells.forEach((d,i)=>{
-          const td = document.createElement('td');
-          const entry = laneAssignment.find(a=>a.lane===lane && i>=a.colStart && i<=a.colEnd);
+        // [자동화] 여러 도형을 이어붙이는 대신, 진짜 하나로 병합된 셀(colspan)로 그림
+        let col = 0;
+        while(col < 7){
+          const entry = laneAssignment.find(a=>a.lane===lane && a.colStart===col);
           if(entry){
+            const span = entry.colEnd - entry.colStart + 1;
+            const td = document.createElement('td');
+            td.colSpan = span;
             const res = entry.res;
+            const resStart = toDate(res.startDate), resEnd = toDate(res.endDate);
             const pill = document.createElement('div');
             pill.className = 'site-event-pill';
-            const resStart = toDate(res.startDate), resEnd = toDate(res.endDate);
-            const isFirst = resStart.getTime()===d.getTime() || i===0;
-            const isLast  = resEnd.getTime()===d.getTime() || i===6;
             pill.style.background = siteCategoryColor(res);
-            let label = '\u00A0';
-            if(isFirst){
-              label = `${res.courseName}${res.participants?' '+res.participants+'명':''}`;
-              if(resStart < weekStart) label = '« ' + label;
-              if(resEnd > weekEnd) label = label + ' »';
-            }
+            let label = `${res.courseName}${res.participants?' '+res.participants+'명':''}`;
+            if(resStart < weekStart) label = '« ' + label;
+            if(resEnd > weekEnd) label = label + ' »';
             pill.textContent = label;
-            if(!isFirst) pill.classList.add('cont-left');
-            if(!isLast) pill.classList.add('cont-right');
             pill.title = `${res.courseName} | ${res.startDate}~${res.endDate}`;
             td.appendChild(pill);
+            facRow.appendChild(td);
+            col += span;
+          } else {
+            facRow.appendChild(document.createElement('td'));
+            col += 1;
           }
-          facRow.appendChild(td);
-        });
+        }
         tbody.appendChild(facRow);
       }
     });
