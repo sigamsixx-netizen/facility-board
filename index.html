@@ -87,6 +87,24 @@ function siteCategoryColor(res){
   return SITE_COLORS.etc;
 }
 
+// 과정명 끝에 붙은 담당자 이름/직함 제거
+function stripStaffName(text){
+  if(!text) return '';
+  let prev = null;
+  while(prev !== text){
+    prev = text;
+    text = text.replace(/\s*[가-힣]{2,4}\s*(RF|TL|PM|PL|PL님|매니저|담당|담당자|팀장|고문|위원|센터장|교수|전문교수|대표|부문장|실장|사업대표|씨|님)\.?\s*$/, '');
+    text = text.replace(/(\d+\s*명)\s+[가-힣]{2,4}$/, '$1');
+  }
+  return text.trim();
+}
+function readonlyLabel(res){
+  const course = stripStaffName(res.courseName||'');
+  let label = res.company ? `[${res.company}] ${course}` : course;
+  if(res.participants && !/\d+\s*명/.test(course)) label += ` ${res.participants}명`;
+  return label;
+}
+
 function changeRoMonth(delta){
   roMonth += delta;
   if(roMonth < 0){ roMonth = 11; roYear--; }
@@ -209,11 +227,11 @@ function renderReadOnlyDashboard(){
             const pill = document.createElement('div');
             pill.className = 'site-event-pill';
             pill.style.background = siteCategoryColor(res);
-            let label = `${res.courseName}${res.participants?' '+res.participants+'명':''}`;
+            let label = readonlyLabel(res);
             if(resStart < weekStart) label = '« ' + label;
             if(resEnd > weekEnd) label = label + ' »';
             pill.textContent = label;
-            pill.title = `${res.courseName} | ${res.startDate}~${res.endDate}`;
+            pill.title = `${res.company?'['+res.company+'] ':''}${stripStaffName(res.courseName)} | ${res.startDate}~${res.endDate}`;
             td.appendChild(pill);
             facRow.appendChild(td);
             col += span;
