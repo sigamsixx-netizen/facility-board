@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시설 예약 현황 (읽기전용)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', -apple-system, sans-serif; background: #f5f6fa; color: #222; }
+header { background: #1a56db; color: #fff; padding: 14px 20px; }
+header h1 { font-size: 18px; font-weight: 700; }
+header .sub { font-size: 12px; opacity: .85; margin-top: 2px; }
+#syncBadge { font-size: 11px; margin-top: 4px; font-weight: 600; }
+.app-nav{background:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:2px solid #e8eaf6;box-shadow:0 2px 8px rgba(0,0,0,.06);position:sticky;top:0;z-index:10}
+.month-nav{display:flex;align-items:center;gap:10px}
+.nav-arrow{background:#f0f4ff;border:1px solid #c7d7ff;color:#1a56db;width:34px;height:34px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s}
+.nav-arrow:hover{background:#1a56db;color:#fff;border-color:#1a56db}
+.month-title{font-size:20px;font-weight:700;color:#1a1a1a;min-width:140px;text-align:center}
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#555}
+.legend-dot{width:13px;height:13px;border-radius:3px}
+.site-view-container{padding:20px;overflow-x:auto}
+.site-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:900px}
+.site-table th,.site-table td{border:1px solid #d8dbe6;vertical-align:top}
+.site-table thead th{background:#e9ebf3;color:#444;font-size:12px;font-weight:700;padding:6px 4px;text-align:center}
+.site-table thead th.dow-sun{color:#dc2626}
+.site-table thead th.dow-sat{color:#1d4ed8}
+.site-facility-col{width:78px;background:#f3f4f8;font-size:11px;font-weight:700;color:#555;text-align:center;padding:4px 2px;white-space:pre-line}
+.site-daynum-row td{background:#fafbff;font-weight:800;font-size:14px;color:#333;text-align:left;padding:3px 6px;height:24px}
+.site-daynum-row td.dow-sun{color:#dc2626}
+.site-daynum-row td.dow-sat{color:#1d4ed8}
+.site-daynum-row td.holiday-cell{color:#dc2626}
+.site-holiday-label{font-size:10px;font-weight:600;margin-left:4px}
+.site-event-row td{height:auto;min-height:34px;vertical-align:middle}
+.site-event-pill{display:block;font-size:11.5px;font-weight:600;color:#fff;padding:4px 6px;border-radius:4px;line-height:1.3;cursor:default;white-space:normal;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.site-event-pill.cont-left{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-2px}
+.site-event-pill.cont-right{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:-2px}
+.site-week-gap td{border:none;height:8px;background:transparent}
+footer{text-align:center;padding:16px;color:#999;font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔒 시설 예약 현황 (읽기전용)</h1>
+  <div class="sub">교육과정만 표시됩니다 (개인휴양 제외) · 편집 불가</div>
+  <div id="syncBadge">⚪ 데이터 불러오는 중...</div>
+</header>
+<nav class="app-nav">
+  <div class="month-nav">
+    <button class="nav-arrow" onclick="changeRoMonth(-1)">◀</button>
+    <span class="month-title" id="roMonthTitle"></span>
+    <button class="nav-arrow" onclick="changeRoMonth(1)">▶</button>
+  </div>
+  <div class="legend" id="roLegend">
+    <div class="legend-item"><div class="legend-dot" style="background:#FFC000"></div> 아카데미</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C00000"></div> mySUNI</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00B0F0"></div> 인재위/협의회</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#92D050"></div> 멤버사</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#BFBFBF"></div> 기타</div>
+  </div>
+</nav>
+<div class="site-view-container" id="roViewContainer"></div>
+<footer>매일 자동 갱신됩니다 · 최종 갱신: <span id="lastUpdated">-</span></footer>
+
+<script>
+const HOLIDAYS = {"2022-01-01": "신정연휴", "2022-02-01": "설날", "2022-01-31": "설날 전날", "2022-02-02": "설날 다음날", "2022-03-01": "삼일절", "2022-05-08": "부처님오신날", "2022-05-05": "어린이날", "2022-06-06": "현충일", "2022-08-15": "광복절", "2022-10-03": "개천절", "2022-10-09": "한글날", "2022-09-10": "추석", "2022-09-09": "추석 전날", "2022-09-11": "추석 다음날", "2022-12-25": "기독탄신일", "2022-03-09": "대통령 선거일", "2022-06-01": "지방선거일", "2022-09-12": "추석 대체 휴일", "2022-10-10": "한글날 대체 휴일", "2023-01-01": "신정연휴", "2023-01-22": "설날", "2023-01-21": "설날 전날", "2023-01-23": "설날 다음날", "2023-03-01": "삼일절", "2023-05-27": "부처님오신날", "2023-05-05": "어린이날", "2023-06-06": "현충일", "2023-08-15": "광복절", "2023-10-03": "개천절", "2023-10-09": "한글날", "2023-09-29": "추석", "2023-09-28": "추석 전날", "2023-09-30": "추석 다음날", "2023-12-25": "기독탄신일", "2023-01-24": "설날 대체 휴일", "2023-05-29": "부처님오신날 대체 휴일", "2023-10-02": "임시공휴일", "2024-01-01": "신정연휴", "2024-02-10": "설날", "2024-02-09": "설날 전날", "2024-02-11": "설날 다음날", "2024-03-01": "삼일절", "2024-05-15": "부처님오신날", "2024-05-05": "어린이날", "2024-06-06": "현충일", "2024-08-15": "광복절", "2024-10-03": "개천절", "2024-10-09": "한글날", "2024-09-17": "추석", "2024-09-16": "추석 전날", "2024-09-18": "추석 다음날", "2024-12-25": "기독탄신일", "2024-04-10": "국회의원 선거일", "2024-02-12": "설날 대체 휴일", "2024-05-06": "어린이날 대체 휴일", "2024-10-01": "국군의 날", "2025-01-01": "신정연휴", "2025-01-29": "설날", "2025-01-28": "설날 전날", "2025-01-30": "설날 다음날", "2025-03-01": "삼일절", "2025-05-05": "부처님오신날; 어린이날", "2025-06-06": "현충일", "2025-08-15": "광복절", "2025-10-03": "개천절", "2025-10-09": "한글날", "2025-10-06": "추석", "2025-10-05": "추석 전날", "2025-10-07": "추석 다음날", "2025-12-25": "기독탄신일", "2025-03-03": "삼일절 대체 휴일", "2025-05-06": "부처님오신날 대체 휴일; 어린이날 대체 휴일", "2025-10-08": "추석 대체 휴일", "2025-01-27": "임시공휴일", "2025-06-03": "대통령 선거일", "2026-01-01": "신정연휴", "2026-02-17": "설날", "2026-02-16": "설날 전날", "2026-02-18": "설날 다음날", "2026-03-01": "삼일절", "2026-05-24": "부처님오신날", "2026-05-01": "노동절", "2026-05-05": "어린이날", "2026-06-06": "현충일", "2026-07-17": "제헌절", "2026-08-15": "광복절", "2026-10-03": "개천절", "2026-10-09": "한글날", "2026-09-25": "추석", "2026-09-24": "추석 전날", "2026-09-26": "추석 다음날", "2026-12-25": "기독탄신일", "2026-06-03": "지방선거일", "2026-03-02": "삼일절 대체 휴일", "2026-05-25": "부처님오신날 대체 휴일", "2026-08-17": "광복절 대체 휴일", "2026-10-05": "개천절 대체 휴일", "2027-01-01": "신정연휴", "2027-02-07": "설날", "2027-02-06": "설날 전날", "2027-02-08": "설날 다음날", "2027-03-01": "삼일절", "2027-05-13": "부처님오신날", "2027-05-01": "노동절", "2027-05-05": "어린이날", "2027-06-06": "현충일", "2027-07-17": "제헌절", "2027-08-15": "광복절", "2027-10-03": "개천절", "2027-10-09": "한글날", "2027-09-15": "추석", "2027-09-14": "추석 전날", "2027-09-16": "추석 다음날", "2027-12-25": "기독탄신일", "2027-02-09": "설날 대체 휴일", "2027-05-03": "노동절 대체 휴일", "2027-07-19": "제헌절 대체 휴일", "2027-08-16": "광복절 대체 휴일", "2027-10-04": "개천절 대체 휴일", "2027-10-11": "한글날 대체 휴일", "2027-12-27": "기독탄신일 대체 휴일", "2028-01-01": "신정연휴", "2028-01-27": "설날", "2028-01-26": "설날 전날", "2028-01-28": "설날 다음날", "2028-03-01": "삼일절", "2028-05-02": "부처님오신날", "2028-05-01": "노동절", "2028-05-05": "어린이날", "2028-06-06": "현충일", "2028-07-17": "제헌절", "2028-08-15": "광복절", "2028-10-03": "개천절; 추석", "2028-10-09": "한글날", "2028-10-02": "추석 전날", "2028-10-04": "추석 다음날", "2028-12-25": "기독탄신일", "2028-04-12": "국회의원 선거일", "2028-10-05": "추석 대체 휴일"};
+const SITE_FACILITY_ORDER = ['muui','indeung','wavehill','other'];
+const SITE_FACILITY_LABEL = {muui:'무의\n연수원', indeung:'인등산\nSUPEX\n센터', wavehill:'WAVE\nHILL', other:'기타시설'};
+const SITE_COLORS = {academy:'#FFC000', mysuni:'#C00000', council:'#00B0F0', member:'#92D050', etc:'#BFBFBF', blocked:'#404040'};
+
+let reservations = [];
+let roYear = new Date().getFullYear();
+let roMonth = new Date().getMonth();
+let DATA_VERSION = null;
+
+function dateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function toDate(s){ return new Date(s+'T00:00:00'); }
+function isVacation(r){ return r.category1==='휴양'; }
+function siteCategoryColor(res){
+  if (isVacation(res)) return SITE_COLORS.blocked;
+  if (res.category1==='시설운영') return SITE_COLORS.blocked;
+  const company = (res.company||'');
+  if (company === 'mySUNI') return SITE_COLORS.mysuni;
+  if (company === '협의회' || company === '인재위') return SITE_COLORS.council;
+  if (company === '아카데미') return SITE_COLORS.academy;
+  if (res.category2 === '멤버사') return SITE_COLORS.member;
+  return SITE_COLORS.etc;
+}
+
+function changeRoMonth(delta){
+  roMonth += delta;
+  if(roMonth < 0){ roMonth = 11; roYear--; }
+  if(roMonth > 11){ roMonth = 0; roYear++; }
+  renderReadOnlyDashboard();
+}
+
+function renderReadOnlyDashboard(){
+  document.getElementById('roMonthTitle').textContent = `${roYear}년 ${roMonth+1}월`;
+  const container = document.getElementById('roViewContainer');
+  container.innerHTML = '';
+
+  const firstDay = new Date(roYear, roMonth, 1);
+  const lastDay  = new Date(roYear, roMonth+1, 0);
+  const startDow = firstDay.getDay();
+  const totalDays= lastDay.getDate();
+  const totalCells = Math.ceil((startDow+totalDays)/7)*7;
+  const weeks = totalCells/7;
+
+  const table = document.createElement('table');
+  table.className = 'site-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const dowNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const corner = document.createElement('th');
+  corner.textContent = '시설';
+  corner.className = 'site-facility-col';
+  headRow.appendChild(corner);
+  dowNames.forEach((d,i)=>{
+    const th = document.createElement('th');
+    th.textContent = d;
+    if(i===0) th.classList.add('dow-sun');
+    if(i===6) th.classList.add('dow-sat');
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  for(let w=0; w<weeks; w++){
+    const weekCells = [];
+    for(let i=0;i<7;i++){
+      const cellDate = new Date(roYear, roMonth, 1-startDow + w*7+i);
+      weekCells.push(cellDate);
+    }
+    const weekStart = weekCells[0];
+    const weekEnd = weekCells[6];
+    const hasCurrMonth = weekCells.some(d=>d.getMonth()===roMonth);
+    if(!hasCurrMonth) continue;
+
+    const dateRow = document.createElement('tr');
+    dateRow.className = 'site-daynum-row';
+    const dateLabelCell = document.createElement('td');
+    dateLabelCell.className = 'site-facility-col';
+    dateRow.appendChild(dateLabelCell);
+    weekCells.forEach((d,i)=>{
+      const td = document.createElement('td');
+      const ds = dateStr(d);
+      const holiday = HOLIDAYS[ds];
+      const inMonth = d.getMonth()===roMonth;
+      let label = inMonth ? String(d.getDate()) : `${d.getMonth()+1}.${d.getDate()}`;
+      td.textContent = label;
+      if(i===0) td.classList.add('dow-sun');
+      if(i===6) td.classList.add('dow-sat');
+      if(holiday){
+        td.classList.add('holiday-cell');
+        const hl = document.createElement('span');
+        hl.className = 'site-holiday-label';
+        hl.textContent = holiday;
+        td.appendChild(hl);
+      }
+      if(!inMonth) td.style.opacity = '.4';
+      dateRow.appendChild(td);
+    });
+    tbody.appendChild(dateRow);
+
+    SITE_FACILITY_ORDER.forEach(fac=>{
+      const weekRes = reservations.filter(r=>{
+        if(r.facility!==fac || !r.startDate || !r.endDate) return false;
+        if(r.category1==='휴양') return false;
+        const s=toDate(r.startDate), e=toDate(r.endDate);
+        return s<=weekEnd && e>=weekStart;
+      }).sort((a,b)=> a.startDate<b.startDate?-1:1);
+
+      const laneLastCol = [];
+      const laneAssignment = [];
+      weekRes.forEach(res=>{
+        const s = toDate(res.startDate), e = toDate(res.endDate);
+        const colStart = Math.max(0, Math.round((s - weekStart)/86400000));
+        const colEnd = Math.min(6, Math.round((e - weekStart)/86400000));
+        let lane = laneLastCol.findIndex(lastCol => colStart > lastCol);
+        if(lane === -1){ lane = laneLastCol.length; laneLastCol.push(colEnd); }
+        else { laneLastCol[lane] = colEnd; }
+        laneAssignment.push({res, lane, colStart, colEnd});
+      });
+      const nLanes = Math.max(1, laneLastCol.length);
+
+      for(let lane=0; lane<nLanes; lane++){
+        const facRow = document.createElement('tr');
+        facRow.className = 'site-event-row';
+        if(lane===0){
+          const facLabelCell = document.createElement('td');
+          facLabelCell.className = 'site-facility-col';
+          facLabelCell.textContent = SITE_FACILITY_LABEL[fac];
+          facLabelCell.rowSpan = nLanes;
+          facRow.appendChild(facLabelCell);
+        }
+        weekCells.forEach((d,i)=>{
+          const td = document.createElement('td');
+          const entry = laneAssignment.find(a=>a.lane===lane && i>=a.colStart && i<=a.colEnd);
+          if(entry){
+            const res = entry.res;
+            const pill = document.createElement('div');
+            pill.className = 'site-event-pill';
+            const resStart = toDate(res.startDate), resEnd = toDate(res.endDate);
+            const isFirst = resStart.getTime()===d.getTime() || i===0;
+            const isLast  = resEnd.getTime()===d.getTime() || i===6;
+            pill.style.background = siteCategoryColor(res);
+            let label = '\u00A0';
+            if(isFirst){
+              label = `${res.courseName}${res.participants?' '+res.participants+'명':''}`;
+              if(resStart < weekStart) label = '« ' + label;
+              if(resEnd > weekEnd) label = label + ' »';
+            }
+            pill.textContent = label;
+            if(!isFirst) pill.classList.add('cont-left');
+            if(!isLast) pill.classList.add('cont-right');
+            pill.title = `${res.courseName} | ${res.startDate}~${res.endDate}`;
+            td.appendChild(pill);
+          }
+          facRow.appendChild(td);
+        });
+        tbody.appendChild(facRow);
+      }
+    });
+
+    if(w < weeks-1){
+      const gapRow = document.createElement('tr');
+      gapRow.className = 'site-week-gap';
+      for(let i=0;i<8;i++) gapRow.appendChild(document.createElement('td'));
+      tbody.appendChild(gapRow);
+    }
+  }
+
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+async function pollForUpdates(){
+  try{
+    const res = await fetch('data.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('no data.json');
+    const json = await res.json();
+    document.getElementById('syncBadge').textContent = '🟢 자동 갱신 중 · 마지막 ' + (json.updatedAt||'-');
+    document.getElementById('lastUpdated').textContent = json.updatedAt||'-';
+    if(json.version !== DATA_VERSION){
+      DATA_VERSION = json.version;
+      reservations = json.records;
+      renderReadOnlyDashboard();
+    }
+  }catch(e){
+    document.getElementById('syncBadge').textContent = '⚪ 자동 갱신 연결 안 됨';
+  }
+}
+
+setInterval(pollForUpdates, 10000);
+window.addEventListener('load', ()=>{ pollForUpdates(); renderReadOnlyDashboard(); });
+</script>
+</body>
+</html>
