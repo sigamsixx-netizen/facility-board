@@ -93,14 +93,19 @@ function stripStaffName(text){
   let prev = null;
   while(prev !== text){
     prev = text;
-    text = text.replace(/\s*[가-힣]{2,4}\s*(RF|TL|PM|PL|PL님|매니저|담당|담당자|팀장|고문|위원|센터장|교수|전문교수|대표|부문장|실장|사업대표|씨|님)\.?\s*$/, '');
+    text = text.replace(/(^|\s)[가-힣]{2,4}\s*(RF|TL|PM|PL|PL님|매니저|담당|담당자|팀장|고문|위원|센터장|교수|전문교수|대표|부문장|실장|사업대표|씨|님)\.?$/, '$1');
     text = text.replace(/(\d+\s*명)\s+[가-힣]{2,4}$/, '$1');
+    text = text.replace(/(^|\s)[가-힣]{2,4}\s+(\d+\s*명)$/, '$1$2');
   }
   return text.trim();
 }
 function readonlyLabel(res){
-  const course = stripStaffName(res.courseName||'');
-  let label = res.company ? `[${res.company}] ${course}` : course;
+  let course = stripStaffName(res.courseName||'');
+  const company = res.company||'';
+  if(company && course.startsWith(company)){
+    course = course.slice(company.length).trim();
+  }
+  let label = company ? `[${company}] ${course}` : course;
   if(res.participants && !/\d+\s*명/.test(course)) label += ` ${res.participants}명`;
   return label;
 }
