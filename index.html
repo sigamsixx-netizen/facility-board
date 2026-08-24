@@ -103,14 +103,18 @@ function siteCategoryColor(res){
 }
 
 // 과정명 끝에 붙은 담당자 이름/직함 제거
+// ⚠️ "캔미팅"/"전략팀"/"리더" 같은 과정 설명 단어를 사람 이름으로 오인식해 지우는 문제 수정
+// (2026-08-21). 이 파일은 위쪽(AUTO_SYNC_JS, 관리용 보드)과 별도의 HTML/스크립트라서
+// COURSE_WORD_GUARD를 여기서도 다시 정의해야 함(스코프 공유 안 됨).
+const COURSE_WORD_GUARD = /^(캔미팅|워크샵|워크숍|전략팀|전략회의|리더십|리더|구성원|신입|영입|오리엔테이션|세션|준비|대화|임원|본부|노사|촬영|중계|포럼|코칭|출범식|해단식|캠프|행사|회의|미팅|과정|교육|팀장)$/;
 function stripStaffName(text){
   if(!text) return '';
   let prev = null;
   while(prev !== text){
     prev = text;
     text = text.replace(/(^|\s)[가-힣]{2,4}\s*(RF|TL|PM|PL|PL님|매니저|담당|담당자|팀장|고문|위원|센터장|교수|전문교수|대표|부문장|실장|사업대표|씨|님)\.?$/, '$1');
-    text = text.replace(/(\d+\s*명)\s+[가-힣]{2,4}$/, '$1');
-    text = text.replace(/(^|\s)[가-힣]{2,4}\s+(\d+\s*명)$/, '$1$2');
+    text = text.replace(/(\d+\s*명)\s+([가-힣]{2,4})$/, (m, num, name) => COURSE_WORD_GUARD.test(name) ? m : num);
+    text = text.replace(/(^|\s)([가-힣]{2,4})\s+(\d+\s*명)$/, (m, pre, name, num) => COURSE_WORD_GUARD.test(name) ? m : pre + num);
   }
   return text.trim();
 }
