@@ -25,14 +25,14 @@ header .sub { font-size: 12px; opacity: .85; margin-top: 2px; }
 .site-table thead th{background:#e9ebf3;color:#444;font-size:12px;font-weight:700;padding:6px 4px;text-align:center}
 .site-table thead th.dow-sun{color:#dc2626}
 .site-table thead th.dow-sat{color:#1d4ed8}
-.site-facility-col{width:78px;background:#f3f4f8;font-size:12px;font-weight:700;color:#555;text-align:center;padding:6px 3px;white-space:pre-line}
-.site-daynum-row td{background:#fafbff;font-weight:800;font-size:14px;color:#333;text-align:left;padding:4px 6px;height:28px}
+.site-facility-col{width:88px;background:#f3f4f8;font-size:13px;font-weight:700;color:#555;text-align:center;padding:8px 4px;white-space:pre-line}
+.site-daynum-row td{background:#fafbff;font-weight:800;font-size:15px;color:#333;text-align:left;padding:5px 8px;height:36px}
 .site-daynum-row td.dow-sun{color:#dc2626}
 .site-daynum-row td.dow-sat{color:#1d4ed8}
 .site-daynum-row td.holiday-cell{color:#dc2626}
 .site-holiday-label{font-size:10px;font-weight:600;margin-left:4px}
-.site-event-row td{height:auto;min-height:44px;vertical-align:middle}
-.site-event-pill{display:block;font-size:12.5px;font-weight:600;color:#fff;padding:5px 7px;border-radius:4px;line-height:1.45;cursor:default;white-space:normal;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.site-event-row td{height:auto;min-height:80px;vertical-align:middle}
+.site-event-pill{display:block;font-size:14px;font-weight:600;color:#fff;padding:9px 10px;border-radius:4px;line-height:1.5;cursor:default;white-space:normal;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,.15)}
 .site-event-pill.cont-left{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-2px}
 .site-event-pill.cont-right{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:-2px}
 .site-week-gap td{border:none;height:8px;background:transparent}
@@ -52,19 +52,22 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
   @page{ size: landscape; margin: 8mm; }
   html, body{ height:100%; }
   *{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-  body{ background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  body{ background:#fff; display:block; }  /* 기본은 위에서부터 흘러내리는 배치(2장 넘어가도 안전) */
   #syncBadge, .nav-arrow, .ro-facility-filter{ display:none !important; }
   header{ width:100%; text-align:center; }
   .app-nav{ position:static; box-shadow:none; justify-content:center; gap:24px; }
   footer{ display:none !important; }
-  .site-view-container{ padding:0; overflow:visible; width:100%; margin:auto; display:flex; flex-direction:column; justify-content:center; }
+  .site-view-container{ padding:0; overflow:visible; width:100%; margin:0 auto; }
   .site-table{ min-width:0 !important; width:100% !important; table-layout:fixed; margin:auto; }
   .site-table, .site-table *{ box-shadow:none !important; }
   tr, td, th{ page-break-inside:avoid; }
 
-  /* [2026-09-02] 웨이브힐 페이지 스타일이 마음에 든다는 피드백 → 읽기전용/관리용/무의도/
-     인등산 전부 동일하게 여유 있는 사이즈로 통일. 시설이 여러 개라 1장을 넘으면 자연스럽게
-     2장으로 넘어가도록 둠(위 .site-table에 page-break-inside:avoid를 안 걸어서 가능). */
+  /* [2026-09-02] 내용이 1장 안에 다 들어가는 경우에만(JS가 판정) 위아래 중앙정렬 +
+     남는 여백만큼 확대. 1장을 넘는 경우엔 이 클래스가 안 붙어서 위 기본값(block)이 유지되어
+     범례/제목이 잘리지 않고 자연스럽게 2장으로 이어짐. */
+  body.print-fits{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  body.print-fits .site-view-container{ margin:auto; display:flex; flex-direction:column; justify-content:center; }
+
   .site-event-row td{ min-height:80px !important; }
   .site-daynum-row td{ height:36px !important; font-size:15px !important; }
   .site-event-pill{ font-size:14px !important; padding:9px 10px !important; line-height:1.5 !important; }
@@ -374,6 +377,38 @@ window.addEventListener('load', ()=>{
   }
   pollForUpdates();
   renderReadOnlyDashboard();
+});
+
+// [2026-09-02] 인쇄 직전에 실제 내용 높이를 재서:
+//  - 1장 안에 들어가면 → 중앙정렬 + 남는 여백만큼 자동 확대(꽉 차 보이게)
+//  - 1장을 넘으면 → 중앙정렬 안 하고 위에서부터 자연스럽게 2장으로 흘러가게(범례/제목 안 잘림)
+function fitPrintLayout(){
+  const container = document.querySelector('.site-view-container');
+  if (!container) return;
+  container.style.transform = '';
+  container.style.width = '';
+  document.body.classList.remove('print-fits');
+
+  const headerH = (document.querySelector('header')?.offsetHeight || 0);
+  const navH = (document.querySelector('.app-nav')?.offsetHeight || 0);
+  const pageHeightPx = 1050 - headerH - navH - 24; // A4 가로 인쇄 가능 영역 대략치(96dpi 환산)
+  const contentHeight = container.scrollHeight;
+
+  if (contentHeight <= pageHeightPx) {
+    document.body.classList.add('print-fits');
+    const scale = Math.min(1.6, pageHeightPx / contentHeight);
+    if (scale > 1.02) {
+      container.style.transform = `scale(${scale})`;
+      container.style.transformOrigin = 'top center';
+      container.style.width = `${100 / scale}%`;
+    }
+  }
+}
+window.addEventListener('beforeprint', fitPrintLayout);
+window.addEventListener('afterprint', ()=>{
+  const container = document.querySelector('.site-view-container');
+  if (container){ container.style.transform = ''; container.style.width = ''; }
+  document.body.classList.remove('print-fits');
 });
 </script>
 </body>
