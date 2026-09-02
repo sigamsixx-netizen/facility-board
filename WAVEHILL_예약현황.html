@@ -60,15 +60,23 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
   .site-view-container{ padding:0; overflow:visible; width:100%; margin:auto; display:flex; flex-direction:column; justify-content:center; }
   .site-table{ min-width:0 !important; width:100% !important; table-layout:fixed; margin:auto; }
   .site-table, .site-table *{ box-shadow:none !important; }
-  .site-event-pill{ font-size:9px !important; padding:2px 3px !important; line-height:1.25 !important; }
-  .site-facility-col{ font-size:9px !important; padding:2px 1px !important; }
-  .site-daynum-row td{ font-size:11px !important; height:auto !important; }
-  .site-event-row td{ min-height:0 !important; }
   tr, td, th{ page-break-inside:avoid; }
+
+  /* 읽기전용/관리용(전체 5개 시설) — 기본은 촘촘하게, 실제 축소비율은 JS(fitBoardToOnePage)가 계산 */
+  body[data-fixed-facility=""] .site-event-pill{ font-size:9px !important; padding:2px 3px !important; line-height:1.25 !important; }
+  body[data-fixed-facility=""] .site-facility-col{ font-size:9px !important; padding:2px 1px !important; }
+  body[data-fixed-facility=""] .site-daynum-row td{ font-size:11px !important; height:auto !important; }
+  body[data-fixed-facility=""] .site-event-row td{ min-height:0 !important; }
+
+  /* 웨이브힐/무의도/인등산 전용 페이지 — 시설 1개뿐이라 여유 많음, 오히려 크고 여유있게 */
+  body:not([data-fixed-facility=""]) .site-event-row td{ min-height:80px !important; }
+  body:not([data-fixed-facility=""]) .site-daynum-row td{ height:36px !important; font-size:15px !important; }
+  body:not([data-fixed-facility=""]) .site-event-pill{ font-size:14px !important; padding:9px 10px !important; line-height:1.5 !important; }
+  body:not([data-fixed-facility=""]) .site-facility-col{ font-size:13px !important; }
 }
 </style>
 </head>
-<body>
+<body data-fixed-facility="wavehill">
 <header>
   <h1>🔒 시설 예약 현황 (읽기전용)</h1>
   <div id="syncBadge">⚪ 데이터 불러오는 중...</div>
@@ -370,6 +378,32 @@ window.addEventListener('load', ()=>{
   }
   pollForUpdates();
   renderReadOnlyDashboard();
+});
+
+// [2026-09-02 추가] 읽기전용/관리용(전체 시설, 5줄) 보드는 달마다 예약 건수가 달라
+// 글자 크기를 고정하면 어떤 달엔 2장으로 넘치고 어떤 달엔 여백이 많이 남음.
+// 인쇄 직전에 실제 콘텐츠 높이를 재서, 1장에 맞도록 자동으로 축소 비율을 계산해 적용.
+// (시설 전용 페이지는 FIXED_FACILITY가 있어서 이 로직 자체를 건너뜀 — 그쪽은 넉넉하게 크게 보여주는 게 목적)
+function fitBoardToOnePage(){
+  if (FIXED_FACILITY) return;
+  const container = document.querySelector('.site-view-container');
+  if (!container) return;
+  container.style.transform = '';
+  container.style.width = '';
+  const headerH = (document.querySelector('header')?.offsetHeight || 0);
+  const navH = (document.querySelector('.app-nav')?.offsetHeight || 0);
+  // A4 가로 기준 대략적인 인쇄 가능 높이(px, 96dpi 환산) — 여백 8mm 두 번 뺀 값
+  const pageHeightPx = 1050 - headerH - navH - 24;
+  const contentHeight = container.scrollHeight;
+  let scale = contentHeight > pageHeightPx ? Math.max(0.32, pageHeightPx / contentHeight) : 1;
+  container.style.transform = `scale(${scale})`;
+  container.style.transformOrigin = 'top center';
+  container.style.width = `${100 / scale}%`;
+}
+window.addEventListener('beforeprint', fitBoardToOnePage);
+window.addEventListener('afterprint', ()=>{
+  const container = document.querySelector('.site-view-container');
+  if (container){ container.style.transform = ''; container.style.width = ''; }
 });
 </script>
 </body>
