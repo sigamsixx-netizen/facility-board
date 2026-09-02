@@ -386,8 +386,7 @@ window.addEventListener('load', ()=>{
 function fitPrintLayout(){
   const container = document.querySelector('.site-view-container');
   if (!container) return;
-  container.style.transform = '';
-  container.style.width = '';
+  container.style.zoom = '';
   document.body.classList.remove('print-fits');
 
   const headerH = (document.querySelector('header')?.offsetHeight || 0);
@@ -397,18 +396,20 @@ function fitPrintLayout(){
   const pageHeightPx = Math.round((733 - headerH - navH - 16) * 0.92);
   const contentHeight = container.scrollHeight;
 
+  // [2026-09-02 재수정] transform:scale()은 "보이는 것"만 줄일 뿐 인쇄 페이지 나누기 계산에는
+  // 반영이 안 돼서(크롬 인쇄 엔진은 원래 크기 기준으로 페이지를 나눔), 축소해도 여전히 2장으로
+  // 나뉘고 화면엔 작게 쪼그라든 내용만 보이는 문제가 있었음. → 실제 레이아웃 크기 자체를 줄이는
+  // zoom을 사용(크롬/엣지 지원, 인쇄 페이지 나누기에도 실제로 반영됨).
   if (contentHeight > pageHeightPx && pageHeightPx > 0) {
     const scale = Math.max(0.3, pageHeightPx / contentHeight);
-    container.style.transform = `scale(${scale})`;
-    container.style.transformOrigin = 'top center';
-    container.style.width = `${100 / scale}%`;
+    container.style.zoom = scale;
   }
   document.body.classList.add('print-fits');  // 축소했든 원래부터 작았든, 이제 1장 안에 들어가므로 중앙정렬
 }
 window.addEventListener('beforeprint', fitPrintLayout);
 window.addEventListener('afterprint', ()=>{
   const container = document.querySelector('.site-view-container');
-  if (container){ container.style.transform = ''; container.style.width = ''; }
+  if (container){ container.style.zoom = ''; }
   document.body.classList.remove('print-fits');
 });
 </script>
