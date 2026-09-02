@@ -379,9 +379,10 @@ window.addEventListener('load', ()=>{
   renderReadOnlyDashboard();
 });
 
-// [2026-09-02] 인쇄 직전에 실제 내용 높이를 재서:
-//  - 1장 안에 들어가면 → 중앙정렬 + 남는 여백만큼 자동 확대(꽉 차 보이게)
-//  - 1장을 넘으면 → 중앙정렬 안 하고 위에서부터 자연스럽게 2장으로 흘러가게(범례/제목 안 잘림)
+// [2026-09-02 재설계] 이전 버전은 인쇄 가능 높이를 실제보다 크게 잡아서(1050px), 여백이
+// 남는 걸로 잘못 판단하고 확대를 걸었다가 오히려 페이지가 2~3장으로 넘쳐버리는 문제가 있었음.
+// → 확대는 완전히 제거하고, "필요할 때만 축소"만 하도록 단순화. 무조건 1장 안에 들어가는 걸
+// 최우선으로 하고, 안전 여유(8%)까지 둬서 절대 넘치지 않게 함.
 function fitPrintLayout(){
   const container = document.querySelector('.site-view-container');
   if (!container) return;
@@ -391,18 +392,18 @@ function fitPrintLayout(){
 
   const headerH = (document.querySelector('header')?.offsetHeight || 0);
   const navH = (document.querySelector('.app-nav')?.offsetHeight || 0);
-  const pageHeightPx = 1050 - headerH - navH - 24; // A4 가로 인쇄 가능 영역 대략치(96dpi 환산)
+  // A4 가로(297×210mm) 기준, 여백 8mm×2 뺀 실제 인쇄 가능 높이 ≈ 733px(96dpi 환산).
+  // 브라우저마다 계산이 조금씩 달라 오차가 있을 수 있어 8% 안전 여유를 더 뺌.
+  const pageHeightPx = Math.round((733 - headerH - navH - 16) * 0.92);
   const contentHeight = container.scrollHeight;
 
-  if (contentHeight <= pageHeightPx) {
-    document.body.classList.add('print-fits');
-    const scale = Math.min(1.6, pageHeightPx / contentHeight);
-    if (scale > 1.02) {
-      container.style.transform = `scale(${scale})`;
-      container.style.transformOrigin = 'top center';
-      container.style.width = `${100 / scale}%`;
-    }
+  if (contentHeight > pageHeightPx && pageHeightPx > 0) {
+    const scale = Math.max(0.3, pageHeightPx / contentHeight);
+    container.style.transform = `scale(${scale})`;
+    container.style.transformOrigin = 'top center';
+    container.style.width = `${100 / scale}%`;
   }
+  document.body.classList.add('print-fits');  // 축소했든 원래부터 작았든, 이제 1장 안에 들어가므로 중앙정렬
 }
 window.addEventListener('beforeprint', fitPrintLayout);
 window.addEventListener('afterprint', ()=>{
