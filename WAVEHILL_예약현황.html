@@ -50,9 +50,8 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
    들어가도록 강제. 가로(landscape) + 전체 폭 축소 + 불필요한 인터랙션 요소 숨김. */
 @media print{
   @page{ size: landscape; margin: 8mm; }
-  html, body{ height:100%; }
   *{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-  body{ background:#fff; display:block; }  /* 기본은 위에서부터 흘러내리는 배치(2장 넘어가도 안전) */
+  body{ background:#fff; }
   #syncBadge, .nav-arrow, .ro-facility-filter{ display:none !important; }
   header{ width:100%; text-align:center; }
   .app-nav{ position:static; box-shadow:none; justify-content:center; gap:24px; }
@@ -62,16 +61,14 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
   .site-table, .site-table *{ box-shadow:none !important; }
   tr, td, th{ page-break-inside:avoid; }
 
-  /* [2026-09-02] 내용이 1장 안에 다 들어가는 경우에만(JS가 판정) 위아래 중앙정렬 +
-     남는 여백만큼 확대. 1장을 넘는 경우엔 이 클래스가 안 붙어서 위 기본값(block)이 유지되어
-     범례/제목이 잘리지 않고 자연스럽게 2장으로 이어짐. */
-  body.print-fits{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  body.print-fits .site-view-container{ margin:auto; display:flex; flex-direction:column; justify-content:center; }
-
-  .site-event-row td{ min-height:80px !important; }
-  .site-daynum-row td{ height:36px !important; font-size:15px !important; }
-  .site-event-pill{ font-size:14px !important; padding:9px 10px !important; line-height:1.5 !important; }
-  .site-facility-col{ font-size:13px !important; }
+  /* [2026-09-03 재수정] JS로 인쇄 직전에 자동 축소/확대하던 방식이 매번 다른 방식으로
+     오작동해서(과도한 축소, 페이지 계산 오류 등) 완전히 제거함. 대신 어떤 달이든, 시설이
+     1개든 5개든 안정적으로 1장(많으면 자연스럽게 2장)에 들어가는 고정 크기로 통일. 계산에
+     의존하지 않으니 이후로 이 문제가 재발하지 않음. */
+  .site-event-row td{ min-height:30px !important; }
+  .site-daynum-row td{ height:22px !important; font-size:11px !important; }
+  .site-event-pill{ font-size:9.5px !important; padding:2px 4px !important; line-height:1.25 !important; }
+  .site-facility-col{ font-size:10px !important; padding:2px 2px !important; }
 }
 </style>
 </head>
@@ -377,40 +374,6 @@ window.addEventListener('load', ()=>{
   }
   pollForUpdates();
   renderReadOnlyDashboard();
-});
-
-// [2026-09-02 재설계] 이전 버전은 인쇄 가능 높이를 실제보다 크게 잡아서(1050px), 여백이
-// 남는 걸로 잘못 판단하고 확대를 걸었다가 오히려 페이지가 2~3장으로 넘쳐버리는 문제가 있었음.
-// → 확대는 완전히 제거하고, "필요할 때만 축소"만 하도록 단순화. 무조건 1장 안에 들어가는 걸
-// 최우선으로 하고, 안전 여유(8%)까지 둬서 절대 넘치지 않게 함.
-function fitPrintLayout(){
-  const container = document.querySelector('.site-view-container');
-  if (!container) return;
-  container.style.zoom = '';
-  document.body.classList.remove('print-fits');
-
-  const headerH = (document.querySelector('header')?.offsetHeight || 0);
-  const navH = (document.querySelector('.app-nav')?.offsetHeight || 0);
-  // A4 가로(297×210mm) 기준, 여백 8mm×2 뺀 실제 인쇄 가능 높이 ≈ 733px(96dpi 환산).
-  // 브라우저마다 계산이 조금씩 달라 오차가 있을 수 있어 8% 안전 여유를 더 뺌.
-  const pageHeightPx = Math.round((733 - headerH - navH - 16) * 0.92);
-  const contentHeight = container.scrollHeight;
-
-  // [2026-09-02 재수정] transform:scale()은 "보이는 것"만 줄일 뿐 인쇄 페이지 나누기 계산에는
-  // 반영이 안 돼서(크롬 인쇄 엔진은 원래 크기 기준으로 페이지를 나눔), 축소해도 여전히 2장으로
-  // 나뉘고 화면엔 작게 쪼그라든 내용만 보이는 문제가 있었음. → 실제 레이아웃 크기 자체를 줄이는
-  // zoom을 사용(크롬/엣지 지원, 인쇄 페이지 나누기에도 실제로 반영됨).
-  if (contentHeight > pageHeightPx && pageHeightPx > 0) {
-    const scale = Math.max(0.3, pageHeightPx / contentHeight);
-    container.style.zoom = scale;
-  }
-  document.body.classList.add('print-fits');  // 축소했든 원래부터 작았든, 이제 1장 안에 들어가므로 중앙정렬
-}
-window.addEventListener('beforeprint', fitPrintLayout);
-window.addEventListener('afterprint', ()=>{
-  const container = document.querySelector('.site-view-container');
-  if (container){ container.style.zoom = ''; }
-  document.body.classList.remove('print-fits');
 });
 </script>
 </body>
