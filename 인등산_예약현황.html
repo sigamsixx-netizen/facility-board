@@ -135,6 +135,7 @@ function siteCategoryColor(res){
 // ⚠️ "캔미팅"/"전략팀"/"리더" 같은 과정 설명 단어를 사람 이름으로 오인식해 지우는 문제 수정
 // (2026-08-21). 이 파일은 위쪽(AUTO_SYNC_JS, 관리용 보드)과 별도의 HTML/스크립트라서
 // COURSE_WORD_GUARD를 여기서도 다시 정의해야 함(스코프 공유 안 됨).
+const NAME_TAIL_GUARD = /^(하반기|상반기|주간회의|정기총회|전략회의|추진단|워크숍|공유회|설명회|성과공유|간담회|연수회|최종현|고문단|위원회|지원단|추진위|노사협|문화제|원장님|성과회|한마음|조직문화|인재육성|임직원|이사회|주주총회|리더십)$/;
 const COURSE_WORD_GUARD = /^(캔미팅|워크샵|워크숍|전략팀|전략회의|리더십|리더|구성원|신입|영입|오리엔테이션|세션|준비|대화|임원|본부|노사|촬영|중계|포럼|코칭|출범식|해단식|캠프|행사|회의|미팅|과정|교육|팀장)$/;
 function stripStaffName(text){
   if(!text) return '';
@@ -145,9 +146,29 @@ function stripStaffName(text){
     text = text.replace(/(\d+\s*명)\s+([가-힣]{2,4})$/, (m, num, name) => COURSE_WORD_GUARD.test(name) ? m : num);
     text = text.replace(/(^|\s)([가-힣]{2,4})\s+(\d+\s*명)$/, (m, pre, name, num) => COURSE_WORD_GUARD.test(name) ? m : pre + num);
   }
+  // [2026-10-22] "N명" 뒤에 이어지는 담당자 이름/직함/숙소명 등은 전부 제거 (괄호 메모는 유지)
+  text = text.replace(/(\d+\s*명)\s+(?!\()[^()]*?(\([^)]*\))?\s*$/, (m, num) => num);
+  text = text.replace(/(\d+\s*명)\s*[가-힣]{2,4}\s*(RF|TL|PM|PL|총괄)\s*\([^)]*\)\s*$/, '$1');
+  // 인원 표기 없이 끝에 붙은 사람 이름(성+이름 3글자) 제거 (예: "... W/S 1차 김리예")
+  text = text.replace(/(\s)([김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구나민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모])([가-힣]{2})$/, (m, sp, a, b) => NAME_TAIL_GUARD.test(a+b) ? m : '');
   return text.trim();
 }
+// [2026-10-22] 공개용 읽기전용 보드: "[회사] 과정명 N명" 형태만 표시 (담당자·시간·숙소·메모 제외)
+function publicLabel(res){
+  let c = stripStaffName(res.courseName||'');
+  let n = '';
+  const m = c.match(/^(.*?)\s*(?:약\s*)?(\d+)\s*명/);
+  if(m){ c = m[1]; n = m[2]; }
+  else if(res.participants){ n = String(res.participants).replace(/[^\d]/g,''); }
+  const company = res.company||'';
+  if(company && c.startsWith(company)) c = c.slice(company.length);
+  c = stripStaffName(c.trim()).replace(/\s+/g,' ').trim();
+  let label = company ? `[${company}] ${c}` : c;
+  if(n && n !== '0') label += ` ${n}명`;
+  return label.trim();
+}
 function readonlyLabel(res){
+  if(!SHOW_RETREAT) return publicLabel(res);
   // ⚠️ 비공개(SHOW_RETREAT=true) 보드에서는 담당자 이름을 지우지 않고 원문 그대로 보여줌
   // (요청: 시설별 대관 담당자 성명 전체 확인, 2026-08-25)
   let course = SHOW_RETREAT ? (res.courseName||'') : stripStaffName(res.courseName||'');
