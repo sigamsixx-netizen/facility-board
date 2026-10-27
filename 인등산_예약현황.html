@@ -73,6 +73,31 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
   .site-event-pill{ font-size:14px !important; padding:9px 10px !important; line-height:1.5 !important; }
   .site-facility-col{ font-size:13px !important; }
 }
+/* [2026-10-27] 월간 보고 화면 (관리용 전용) */
+.rpt-btn{background:#1a56db;color:#fff;border:0;border-radius:16px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;display:none}
+.rpt-btn.on{background:#111827}
+#reportView{display:none;padding:20px;background:#fff}
+body.report-mode #reportView{display:block}
+body.report-mode .site-view-container, body.report-mode .ro-facility-filter, body.report-mode .legend{display:none !important}
+.rpt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.rpt-head h2{font-size:20px}
+.rpt-head .sub{font-size:12px;color:#666;margin-top:4px}
+.rpt-sign{border-collapse:collapse;font-size:12px}
+.rpt-sign th,.rpt-sign td{border:1px solid #444;padding:3px 12px;text-align:center;min-width:72px}
+.rpt-sign td{height:38px}
+.rpt-sec{font-size:15px;font-weight:700;margin:16px 0 6px}
+.rpt-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:6px}
+.rpt-table th,.rpt-table td{border:1px solid #bbb;padding:5px 8px;text-align:left}
+.rpt-table th{background:#eef1f8;text-align:center}
+.rpt-table td.c{text-align:center}
+.rpt-sub{font-size:13px;font-weight:700;margin:10px 0 4px;color:#333}
+.rpt-total{font-size:12px;color:#444;text-align:right;margin-bottom:8px}
+.rpt-note{font-size:11px;color:#666;margin-top:10px}
+@media print{
+  body.report-mode #reportView{padding:0}
+  body.report-mode .nav-arrow, body.report-mode .rpt-btn{display:none !important}
+  .rpt-table tr{page-break-inside:avoid}
+}
 </style>
 </head>
 <body data-fixed-facility="indeung">
@@ -86,6 +111,7 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
     <span class="month-title" id="roMonthTitle"></span>
     <button class="nav-arrow" onclick="changeRoMonth(1)">▶</button>
   </div>
+  <button class="rpt-btn" id="rptBtn" onclick="toggleReport()">📋 월간 보고</button>
   <div class="legend" id="roLegend">
     <div class="legend-item ro-legend-item" data-cat="아카데미" onclick="toggleCategoryFilter('아카데미')"><div class="legend-dot" style="background:#FFC000"></div> 아카데미</div>
     <div class="legend-item ro-legend-item" data-cat="mySUNI" onclick="toggleCategoryFilter('mySUNI')"><div class="legend-dot" style="background:#C00000"></div> mySUNI</div>
@@ -102,6 +128,7 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
   <button class="ro-fac-btn" data-fac="other" onclick="setFacilityFilter('other')">기타시설</button>
 </div>
 <div class="site-view-container" id="roViewContainer"></div>
+<div id="reportView"></div>
 <footer>매일 자동 갱신됩니다 · 최종 갱신: <span id="lastUpdated">-</span> · 화면이 오래된 것 같으면 새로고침(F5) 해주세요</footer>
 
 <script>
@@ -365,6 +392,84 @@ function renderReadOnlyDashboard(){
 
   table.appendChild(tbody);
   container.appendChild(table);
+  if(typeof renderReport==='function') renderReport();
+}
+
+
+// ===== [2026-10-27] 월간 보고 (관리용 전용) =====
+// 교육·대관: 회사 / 과정명 / 인원      개인휴양: 회사 / 사용자 / 사용 숙소 / 인원
+function splitCourse(res){
+  let c = stripStaffName(res.courseName||'');
+  let n = '';
+  const m = c.match(/^(.*?)\s*(?:약\s*)?(\d+)\s*명/);
+  if(m){ c = m[1]; n = m[2]; }
+  else if(res.participants){ n = String(res.participants).replace(/[^\d]/g,''); }
+  const company = res.company||'';
+  if(company && c.startsWith(company)) c = c.slice(company.length);
+  c = stripStaffName(c.trim()).replace(/\s+/g,' ').trim();
+  return {company, course:c, n:(n && n!=='0') ? n : ''};
+}
+function retreatParts(res){
+  const user = (res.note || res.courseName || '').replace(/\s+/g,' ').trim();
+  const n = res.participants ? String(res.participants).replace(/[^\d]/g,'') : '';
+  return {company: res.company||'', user, room: res.room||'', n:(n && n!=='0') ? n : ''};
+}
+function escHtml(t){ return String(t==null?'':t).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+function fmtMD(s){ const d = toDate(s); return `${d.getMonth()+1}/${d.getDate()}`; }
+function toggleReport(){
+  document.body.classList.toggle('report-mode');
+  const on = document.body.classList.contains('report-mode');
+  const b = document.getElementById('rptBtn');
+  if(b){ b.classList.toggle('on', on); b.textContent = on ? '📅 예약현황으로' : '📋 월간 보고'; }
+  renderReport();
+}
+function renderReport(){
+  const btn = document.getElementById('rptBtn');
+  if(btn && SHOW_RETREAT) btn.style.display = 'inline-block';
+  const box = document.getElementById('reportView');
+  if(!box || !SHOW_RETREAT || !document.body.classList.contains('report-mode')) return;
+  const first = new Date(roYear, roMonth, 1), last = new Date(roYear, roMonth+1, 0);
+  const rows = reservations.filter(r=>{
+    if(!r.startDate || !r.endDate || r.category1==='시설운영') return false;
+    if(roActiveFacility && r.facility !== roActiveFacility) return false;
+    return toDate(r.startDate) <= last && toDate(r.endDate) >= first;
+  });
+  const order = f => { const i = SITE_FACILITY_ORDER.indexOf(f); return i<0 ? 99 : i; };
+  rows.sort((a,b)=> order(a.facility)-order(b.facility) || (a.startDate<b.startDate?-1:a.startDate>b.startDate?1:0));
+  const facName = f => (SITE_FACILITY_LABEL[f]||f||'').replace(/\n/g,'');
+  const edu = rows.filter(r=>r.category1!=='휴양');
+  const vac = rows.filter(r=>r.category1==='휴양');
+  let eduSum = 0;
+  const eduHtml = edu.map((r,i)=>{
+    const p = splitCourse(r); eduSum += parseInt(p.n||0,10);
+    return `<tr><td class="c">${i+1}</td><td class="c">${escHtml(facName(r.facility))}</td><td class="c">${fmtMD(r.startDate)}~${fmtMD(r.endDate)}</td><td>${escHtml(p.company)}</td><td>${escHtml(p.course)}</td><td class="c">${p.n?escHtml(p.n)+'명':'-'}</td></tr>`;
+  }).join('') || '<tr><td colspan="6" class="c">해당 없음</td></tr>';
+  const vacRow = (r,i)=>{
+    const p = retreatParts(r);
+    return `<tr><td class="c">${i+1}</td><td class="c">${fmtMD(r.startDate)}~${fmtMD(r.endDate)}</td><td>${escHtml(p.company)}</td><td>${escHtml(p.user)}</td><td>${escHtml(p.room)}</td><td class="c">${p.n?escHtml(p.n)+'명':'-'}</td></tr>`;
+  };
+  let vacSec = '';
+  const vacFacs = ['muui','indeung'];
+  rows.forEach(r=>{ if(r.category1==='휴양' && !vacFacs.includes(r.facility) && !vacFacs.includes(r.facility)) vacFacs.push(r.facility); });
+  vacFacs.forEach(f=>{
+    if(roActiveFacility && roActiveFacility!==f) return;
+    const list = vac.filter(r=>r.facility===f);
+    const body = list.map(vacRow).join('') || '<tr><td colspan="6" class="c">해당 없음</td></tr>';
+    vacSec += `<div class="rpt-sub">▪ ${escHtml(facName(f))} (${list.length}건)</div>
+    <table class="rpt-table"><thead><tr><th>No</th><th>기간</th><th>회사</th><th>사용자</th><th>사용 숙소</th><th>인원</th></tr></thead><tbody>${body}</tbody></table>`;
+  });
+  const scope = roActiveFacility ? facName(roActiveFacility) : '전체 시설';
+  box.innerHTML = `
+    <div class="rpt-head">
+      <div><h2>${roYear}년 ${roMonth+1}월 시설 이용 현황 보고</h2>
+        <div class="sub">${escHtml(scope)} · 기준일 ${dateStr(new Date())} · 작성 시설담당 황병식</div></div>
+      <table class="rpt-sign"><tr><th>작성</th><th>담당RF</th><th>팀장 승인</th></tr><tr><td>황병식</td><td></td><td></td></tr></table>
+    </div>
+    <div class="rpt-sec">1. 교육·대관 (${edu.length}건 / 인원 합계 ${eduSum}명)</div>
+    <table class="rpt-table"><thead><tr><th>No</th><th>시설</th><th>기간</th><th>회사</th><th>과정명</th><th>인원</th></tr></thead><tbody>${eduHtml}</tbody></table>
+    <div class="rpt-sec">2. 개인휴양 (${vac.length}건)</div>
+    ${vacSec}
+    <div class="rpt-note">※ 월 걸침 건은 해당 월에 일부라도 포함되면 표시됩니다. 예약현황 데이터 기준이며, 경비실 출입대장 대조 결과는 별도 현황표 비고란에 기록합니다.</div>`;
 }
 
 async function pollForUpdates(){
