@@ -107,6 +107,49 @@ body.report-mode .site-view-container, body.report-mode .ro-facility-filter, bod
   .rpt-dl{display:none !important}
   body.report-mode header, body.report-mode .app-nav, body.report-mode footer{display:none !important}
 }
+/* [2026-11-03] 가동율 대시보드 (관리용 전용) */
+#utilView{display:none;padding:20px;background:#fff}
+body.util-mode #utilView{display:block}
+body.util-mode .site-view-container, body.util-mode .ro-facility-filter, body.util-mode .legend, body.util-mode #reportView, body.util-mode .month-nav{display:none !important}
+#utilView h2{font-size:20px}
+#utilView .sub{font-size:12px;color:#666;margin:4px 0 12px}
+.ut-ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;padding:10px 12px;background:#f3f5fa;border-radius:8px;font-size:13px}
+.ut-ctl select{font-size:13px;padding:4px 6px;border:1px solid #c5cbe0;border-radius:5px;background:#fff}
+.ut-ctl .sp{flex:1}
+.ut-ctl button{background:#fff;border:1px solid #1a56db;color:#1a56db;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.ut-ctl button:hover{background:#1a56db;color:#fff}
+.ut-sec{font-size:15px;font-weight:700;margin:16px 0 8px;color:#1B3C87}
+.ut-cards{display:flex;gap:12px;flex-wrap:wrap}
+.ut-card{flex:1;min-width:200px;border:1px solid #d7dbe8;border-radius:10px;padding:14px 16px;background:#fff}
+.ut-card .nm{font-size:14px;font-weight:700;color:#333}
+.ut-card .big{font-size:34px;font-weight:800;color:#1B3C87;margin:2px 0}
+.ut-card .sm{font-size:12px;color:#666;margin-bottom:6px}
+.ut-card .prev{font-size:13px;margin-top:8px;color:#444;font-weight:600}
+.ut-card .prev span{font-weight:400;color:#888;font-size:11px}
+.ut-bar{height:8px;background:#e8ebf3;border-radius:4px;overflow:hidden}
+.ut-bar i{display:block;height:100%}
+.ut-sm{font-size:11px;color:#777;font-weight:400}
+.ut-frow{display:grid;grid-template-columns:130px 1fr 300px;gap:10px;align-items:center;margin:6px 0;font-size:13px}
+.ut-frow .nm{font-weight:700}
+.ut-frow .v{font-size:12px;color:#444}
+.ut-trend{display:flex;gap:10px;align-items:flex-end;height:110px}
+.ut-trend .col{flex:1;text-align:center;font-size:11px}
+.ut-trend .b{height:70px;background:#eef0f6;border-radius:3px;display:flex;align-items:flex-end}
+.ut-trend .b i{display:block;width:100%;border-radius:3px 3px 0 0}
+.ut-trend .v{font-weight:700;margin-bottom:2px}
+.ut-chartbox{border:1px solid #e3e6ee;border-radius:8px;padding:8px 10px;background:#fff}
+.ut-legend{text-align:center;font-size:12px;color:#444;margin-top:2px}
+.ut-lg{margin:0 10px}.ut-lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+.ut-insight{background:#eaf1fb;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:13px;line-height:1.5;color:#1B3C87;font-weight:600}
+tr.ut-future td{color:#888;background:#fafafa}
+tr.ut-tot td{background:#eef1f8}
+@media (max-width:700px){.ut-frow{grid-template-columns:1fr}}
+@media print{
+  body.util-mode #utilView{padding:0}
+  body.util-mode .nav-arrow, body.util-mode .rpt-btn, .no-print{display:none !important}
+  body.util-mode header, body.util-mode .app-nav, body.util-mode footer{display:none !important}
+  .ut-card,.rpt-table tr{page-break-inside:avoid}
+}
 </style>
 </head>
 <body data-fixed-facility="">
@@ -121,6 +164,7 @@ body.report-mode .site-view-container, body.report-mode .ro-facility-filter, bod
     <button class="nav-arrow" onclick="changeRoMonth(1)">▶</button>
   </div>
   <button class="rpt-btn" id="rptBtn" onclick="toggleReport()">📋 월간 보고</button>
+  <button class="rpt-btn" id="utilBtn" onclick="toggleUtil()">📊 가동율·통계</button>
   <div class="legend" id="roLegend">
     <div class="legend-item ro-legend-item" data-cat="아카데미" onclick="toggleCategoryFilter('아카데미')"><div class="legend-dot" style="background:#FFC000"></div> 아카데미</div>
     <div class="legend-item ro-legend-item" data-cat="mySUNI" onclick="toggleCategoryFilter('mySUNI')"><div class="legend-dot" style="background:#C00000"></div> mySUNI</div>
@@ -138,6 +182,7 @@ body.report-mode .site-view-container, body.report-mode .ro-facility-filter, bod
 </div>
 <div class="site-view-container" id="roViewContainer"></div>
 <div id="reportView"></div>
+<div id="utilView"></div>
 <footer>매일 자동 갱신됩니다 · 최종 갱신: <span id="lastUpdated">-</span> · 화면이 오래된 것 같으면 새로고침(F5) 해주세요</footer>
 
 <script>
@@ -402,6 +447,7 @@ function renderReadOnlyDashboard(){
   table.appendChild(tbody);
   container.appendChild(table);
   if(typeof renderReport==='function') renderReport();
+  if(typeof renderUtil==='function') renderUtil();
 }
 
 
@@ -432,6 +478,8 @@ function retreatParts(res){
 function escHtml(t){ return String(t==null?'':t).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
 function fmtMD(s){ const d = toDate(s); return `${d.getMonth()+1}/${d.getDate()}`; }
 function toggleReport(){
+  document.body.classList.remove('util-mode');
+  const ub = document.getElementById('utilBtn'); if(ub){ ub.classList.remove('on'); ub.textContent='📊 가동율·통계'; }
   document.body.classList.toggle('report-mode');
   const on = document.body.classList.contains('report-mode');
   const b = document.getElementById('rptBtn');
@@ -514,6 +562,433 @@ function downloadReport(kind){
   setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 
+// ===== [2026-11-03] 가동율 대시보드 (관리용 전용) — 데이터(reservations)가 바뀌면 자동 재계산 =====
+// 산정 기준 = 기존 정리파일(종합 시트) 기준: 가동율 = 사용일수(중복 제외) ÷ 근무일수(평일-공휴일)
+//  WAVEHILL: 교육만 / 무의·인등산: 교육+개인휴양(평일·주말), 같은 날 겹치면 1일 / 무의도 2022는 5~12월 기준
+const UT_FACS = [['wavehill','WAVEHILL','WAVEHILL'],['muui','무의도','무의연수원'],['indeung','인등산','인등산 SUPEX센터']];
+const UT_START = {'muui|2022':5};
+// 2022~2025 연간은 정리파일 보고치(사용일, 근무일) — 기준은 연도별로 달랐고 과거 보고치이므로 고정
+const UT_HIST = {
+  wavehill:{2022:[133,247],2023:[148,247],2024:[73,246],2025:[79,244]},
+  muui:{2022:[94,167],2023:[169,247],2024:[175,246],2025:[187,244]},
+  indeung:{2022:[103,247],2023:[196,247],2024:[183,246],2025:[211,244]}};
+const UT_FMTS = [
+  ['report','⓪ 종합 보고 (최초 양식) — 실시간'],
+  ['summary','① 가동율 + 교육인원 카드형'],
+  ['forecast','② 현재 기준 + 연말 예상 (신규 양식)'],
+  ['detail','③ 가동율 산정 내역표'],
+  ['monthly','④ 월별 가동율표 (정리파일 종합시트 형태)'],
+  ['trend','⑤ 연도별 추이 (2022~)'],
+  ['basis','⑥ 가동율 산정 기준표'],
+  ['facility','⑦ 시설별 사용 현황'],
+  ['cat1','⑧ 대분류별 현황'],
+  ['cat2','⑨ 중분류별 현황'],
+  ['eduType','⑩ 교육 형태별 현황'],
+  ['company','⑪ 회사별 현황 (멤버사별 사용 횟수)'],
+  ['people','⑫ 월별 연인원·교육인원 추이'],
+  ['yearcmp','⑬ 연도별 종합 비교']
+];
+let utState = {year:null, cm:null, fac:'', fmt:'report'};
+let _utCache = {src:null, n:-1, sets:null, ppl:null};
+
+function utIsWd(key){
+  const dow = new Date(key+'T00:00:00Z').getUTCDay();
+  return dow>0 && dow<6 && !HOLIDAYS[key];
+}
+function utExpand(s,e,set){
+  let t = Date.parse(s+'T00:00:00Z'); const t1 = Math.max(t, Date.parse(e+'T00:00:00Z'));
+  for(; t<=t1; t+=86400000) set.add(new Date(t).toISOString().slice(0,10));
+}
+function utData(){
+  if(_utCache.src===reservations && _utCache.n===reservations.length) return _utCache;
+  const sets = {}, ppl = {};
+  UT_FACS.forEach(f=>{ sets[f[0]] = {edu:new Set(), ret:new Set()}; ppl[f[0]] = []; });
+  (reservations||[]).forEach(r=>{
+    const S = sets[r.facility]; if(!S || !r.startDate) return;
+    const end = r.endDate || r.startDate;
+    if(r.category1==='교육'){
+      utExpand(r.startDate, end, S.edu);
+      ppl[r.facility].push({y:+r.startDate.slice(0,4), m:+r.startDate.slice(5,7), p:+r.participants||0});
+    } else if(r.category1==='휴양' && r.facility!=='wavehill'){
+      utExpand(r.startDate, end, S.ret);
+    }
+  });
+  _utCache = {src:reservations, n:reservations.length, sets, ppl};
+  return _utCache;
+}
+function utWorkdays(y,m1,m2){
+  let n=0;
+  for(let m=m1;m<=m2;m++){
+    const dim = new Date(Date.UTC(y,m,0)).getUTCDate();
+    for(let d=1; d<=dim; d++){
+      const k = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      if(utIsWd(k)) n++;
+    }
+  }
+  return n;
+}
+function utCalc(fk,y,m1,m2){
+  m1 = Math.max(m1, UT_START[fk+'|'+y]||1);
+  const D = utData(), S = D.sets[fk];
+  const pick = set => [...set].filter(k=>{ if(+k.slice(0,4)!==y) return false; const m=+k.slice(5,7); return m>=m1 && m<=m2; });
+  const E = pick(S.edu), R = pick(S.ret), Eset = new Set(E);
+  const ew = E.filter(utIsWd).length;
+  const ro = R.filter(k=>utIsWd(k) && !Eset.has(k)).length;
+  const wke = E.filter(k=>!utIsWd(k)).length;
+  const wkr = R.filter(k=>!utIsWd(k) && !Eset.has(k)).length;
+  const used = new Set([...E, ...R]).size;
+  const wd = m1<=m2 ? utWorkdays(y,m1,m2) : 0;
+  const pr = D.ppl[fk].filter(x=>x.y===y && x.m>=m1 && x.m<=m2);
+  return {wd, ew, ro, wke, wkr, used, p: wd? used/wd*100 : 0, n: pr.length, people: pr.reduce((a,x)=>a+x.p,0)};
+}
+function utRate(fk,y,m1,m2){
+  const h = (UT_HIST[fk]||{})[y];
+  if(h && m1<=(UT_START[fk+'|'+y]||1) && m2>=12) return {used:h[0], wd:h[1], p:h[0]/h[1]*100};
+  return null;
+}
+function utCalcR(fk,y,m1,m2){ const c = utCalc(fk,y,m1,m2), r = utRate(fk,y,m1,m2); return r ? Object.assign(c,r) : c; }
+function utForecast(fk,year,cm){
+  const ytd = utCalc(fk,year,1,cm);
+  const full = utWorkdays(year, UT_START[fk+'|'+year]||1, 12);
+  const rest = cm<12 ? utCalc(fk,year,cm+1,12) : {used:0,ew:0,ro:0,wke:0,wkr:0};
+  const prevRest = cm<12 ? utCalc(fk,year-1,cm+1,12).used : 0;
+  const pct = u => full? u/full*100 : 0;
+  return {full, restWd: full-ytd.wd, ytd, rest, prevRest,
+          A:{used:ytd.used+rest.used, p:pct(ytd.used+rest.used)},
+          B:{used:ytd.used+prevRest, p:pct(ytd.used+prevRest)},
+          C:{used:Math.round(ytd.p/100*full), p:ytd.p}};
+}
+const utF1 = x => x.toFixed(1)+'%';
+const utN = x => Number(x).toLocaleString('ko-KR');
+function utFacList(){
+  const f = FIXED_FACILITY || utState.fac;
+  return UT_FACS.filter(x=>!f || x[0]===f);
+}
+function utYears(){
+  const D = utData(); let min=9999, max=0;
+  UT_FACS.forEach(f=>{ [D.sets[f[0]].edu, D.sets[f[0]].ret].forEach(s=>s.forEach(k=>{ const y=+k.slice(0,4); if(y<min)min=y; if(y>max)max=y; })); });
+  if(min===9999){ min=max=new Date().getFullYear(); }
+  return [min,max];
+}
+function utInit(){
+  if(utState.year!==null) return;
+  const now = new Date(); let y = now.getFullYear(), m = now.getMonth(); // m = 전월(1~12)
+  if(m===0){ y--; m=12; }
+  const [mn,mx] = utYears();
+  if(y>mx) y=mx; if(y<mn) y=mn;
+  utState.year=y; utState.cm=m;
+}
+function toggleUtil(){
+  document.body.classList.remove('report-mode');
+  const rb = document.getElementById('rptBtn'); if(rb){ rb.classList.remove('on'); rb.textContent='📋 월간 보고'; }
+  document.body.classList.toggle('util-mode');
+  const on = document.body.classList.contains('util-mode');
+  const b = document.getElementById('utilBtn');
+  if(b){ b.classList.toggle('on', on); b.textContent = on ? '📅 예약현황으로' : '📊 가동율·통계'; }
+  renderUtil();
+}
+function utSet(k,v){ utState[k] = (k==='year'||k==='cm') ? +v : v; renderUtil(); }
+function utBar(p, color){ return `<div class="ut-bar"><i style="width:${Math.min(100,Math.max(0,p))}%;background:${color||'#1a56db'}"></i></div>`; }
+const UT_COLOR = {wavehill:'#EF9F27', muui:'#378ADD', indeung:'#1D9E75'};  // 시설 고유색: 강뷰=주황 / 바다뷰=파랑 / 마운틴뷰=초록
+
+function utFmtSummary(y,cm){
+  const L = utFacList();
+  const cards = L.map(f=>{
+    const c = utCalcR(f[0],y,1,cm), p = utCalcR(f[0],y-1,1,12);
+    return `<div class="ut-card"><div class="nm">${f[2]}</div><div class="big">${utF1(c.p)}</div>
+      <div class="sm">${y}년 1~${cm}월 · 사용 ${c.used}일 / 근무일 ${c.wd}일</div>${utBar(c.p, UT_COLOR[f[0]])}
+      <div class="prev">${y-1}년 연간 ${utF1(p.p)} <span>(사용 ${p.used}일 / ${p.wd}일)</span></div></div>`;
+  }).join('');
+  const rows = L.map(f=>{
+    const c = utCalcR(f[0],y,1,cm), p = utCalcR(f[0],y-1,1,12);
+    return `<tr><td>${f[2]}</td><td class="c">${utN(c.people)}명</td><td class="c">${c.n}건</td><td class="c">${utN(p.people)}명</td><td class="c">${p.n}건</td></tr>`;
+  }).join('');
+  const tot = L.reduce((a,f)=>{ const c=utCalcR(f[0],y,1,cm), p=utCalcR(f[0],y-1,1,12); a[0]+=c.people; a[1]+=c.n; a[2]+=p.people; a[3]+=p.n; return a; },[0,0,0,0]);
+  return `<div class="ut-sec">시설 가동율 (${y}년 1~${cm}월 현재 · ${y-1}년 연간 비교)</div><div class="ut-cards">${cards}</div>
+    <div class="ut-sec">교육 인원</div>
+    <table class="rpt-table"><thead><tr><th>시설</th><th>${y}년 1~${cm}월 인원</th><th>교육 건수</th><th>${y-1}년 연간 인원</th><th>교육 건수</th></tr></thead><tbody>${rows}
+    <tr><td><b>합계</b></td><td class="c"><b>${utN(tot[0])}명</b></td><td class="c">${tot[1]}건</td><td class="c"><b>${utN(tot[2])}명</b></td><td class="c">${tot[3]}건</td></tr></tbody></table>
+    <div class="rpt-note">※ 가동율 = 사용일수(교육+개인휴양, 중복 제외) ÷ 근무일수(평일-공휴일). WAVEHILL은 교육만. 주말·공휴일 사용은 분자에만 포함.</div>`;
+}
+function utFmtForecast(y,cm){
+  const L = utFacList();
+  const rows = L.map(f=>{
+    const F = utForecast(f[0],y,cm);
+    const v = [F.A.p,F.B.p,F.C.p], lo=Math.min(...v), hi=Math.max(...v);
+    return `<tr><td>${f[2]}</td><td class="c"><b>${utF1(F.ytd.p)}</b><br><span class="ut-sm">${F.ytd.used}일 / ${F.ytd.wd}일</span></td>
+      <td class="c">${F.restWd}일</td><td class="c">${F.rest.used}일</td>
+      <td class="c">${utF1(F.A.p)}<br><span class="ut-sm">${F.A.used}일</span></td><td class="c">${utF1(F.B.p)}<br><span class="ut-sm">${F.B.used}일</span></td>
+      <td class="c">${utF1(F.C.p)}<br><span class="ut-sm">${F.C.used}일</span></td><td class="c"><b>${lo.toFixed(1)}~${hi.toFixed(1)}%</b></td></tr>`;
+  }).join('');
+  const bars = L.map(f=>{
+    const F = utForecast(f[0],y,cm);
+    return `<div class="ut-frow"><span class="nm">${f[2]}</span>${utBar(F.ytd.p, UT_COLOR[f[0]])}<span class="v">현재 ${utF1(F.ytd.p)} → 연말 예상 ${Math.min(F.A.p,F.B.p,F.C.p).toFixed(1)}~${Math.max(F.A.p,F.B.p,F.C.p).toFixed(1)}%</span></div>`;
+  }).join('');
+  return `<div class="ut-sec">${y}년 연말 예상 가동율 (기준: ${cm}월말까지 실적)</div>${bars}
+    <table class="rpt-table" style="margin-top:10px"><thead><tr><th rowspan="2">시설</th><th rowspan="2">현재(1~${cm}월)</th><th rowspan="2">남은 근무일</th><th rowspan="2">남은 기간<br>입력 예약</th><th colspan="3">${y}년 연말 예상 가동율</th><th rowspan="2">예상 범위</th></tr>
+    <tr><th>A 입력된 예약만</th><th>B 전년 같은 기간 수준</th><th>C 현재 비율 유지</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="rpt-note">※ A: ${cm+1}~12월에 이미 입력된 예약만 반영(최소선) / B: ${cm+1}~12월을 ${y-1}년 같은 기간 실적만큼 사용 / C: 현재 누계 가동율이 연말까지 유지. 연간 근무일은 시설별 기준(무의도 2022는 5~12월).</div>`;
+}
+function utFmtDetail(y,cm){
+  const L = utFacList();
+  const block = (label,m1,m2)=>{
+    const rows = L.map(f=>{ const c=utCalc(f[0],y,m1,m2);
+      return `<tr><td>${f[2]}</td><td class="c">${c.wd}</td><td class="c">${c.ew}</td><td class="c">${f[0]==='wavehill'?'-':c.ro}</td><td class="c">${c.wke}</td><td class="c">${f[0]==='wavehill'?'-':c.wkr}</td><td class="c"><b>${c.used}</b></td><td class="c"><b>${utF1(c.p)}</b></td><td class="c">${c.n}건</td><td class="c">${utN(c.people)}명</td></tr>`; }).join('');
+    return `<div class="ut-sec">${label}</div><table class="rpt-table"><thead><tr><th>시설</th><th>근무일</th><th>교육<br>(평일)</th><th>개인휴양 추가<br>(교육 없는 평일)</th><th>교육<br>(주말·공휴일)</th><th>개인휴양<br>(주말·공휴일)</th><th>사용일 합계</th><th>가동율</th><th>교육 건수</th><th>교육 인원</th></tr></thead><tbody>${rows}</tbody></table>`;
+  };
+  return block(`${y}년 1~${cm}월 (현재)`,1,cm) + block(`${y-1}년 연간`,1,12) +
+    `<div class="rpt-note">※ 사용일 합계 = 교육(평일) + 개인휴양 추가 + 주말·공휴일 사용 (같은 날 중복 제외). 가동율 = 사용일 합계 ÷ 근무일.</div>`;
+}
+function utFmtMonthly(y,cm){
+  const L = utFacList();
+  let head1 = '<th rowspan="2">월</th><th rowspan="2">근무일</th>', head2 = '';
+  L.forEach(f=>{ head1 += `<th colspan="2">${f[2]}</th>`; head2 += '<th>사용일</th><th>가동율</th>'; });
+  let body = '';
+  for(let m=1;m<=12;m++){
+    let r = `<tr${m>cm?' class="ut-future"':''}><td class="c">${m}월${m>cm?' <span class="ut-sm">(예약)</span>':''}</td><td class="c">${utWorkdays(y,m,m)}</td>`;
+    L.forEach(f=>{ const c=utCalc(f[0],y,m,m); r += (UT_START[f[0]+'|'+y] && m<UT_START[f[0]+'|'+y]) ? '<td class="c">-</td><td class="c">-</td>' : `<td class="c">${c.used}</td><td class="c">${utF1(c.p)}</td>`; });
+    body += r+'</tr>';
+  }
+  let cur = `<tr class="ut-tot"><td class="c"><b>1~${cm}월</b></td><td class="c"><b>${utWorkdays(y,1,cm)}</b></td>`, full = `<tr class="ut-tot"><td class="c"><b>연간(${y})</b></td><td class="c"><b>${utWorkdays(y,1,12)}</b></td>`;
+  L.forEach(f=>{ const a=utCalcR(f[0],y,1,cm), b=utCalcR(f[0],y,1,12); cur += `<td class="c"><b>${a.used}</b></td><td class="c"><b>${utF1(a.p)}</b></td>`; full += `<td class="c"><b>${b.used}</b></td><td class="c"><b>${utF1(b.p)}</b></td>`; });
+  return `<div class="ut-sec">${y}년 월별 가동율</div><table class="rpt-table"><thead><tr>${head1}</tr><tr>${head2}</tr></thead><tbody>${body}${cur}</tr>${full}</tr></tbody></table>
+    <div class="rpt-note">※ 월별 가동율은 주말·공휴일 사용이 분자에 포함되어 100%를 넘을 수 있습니다. ${cm+1}월 이후(회색)는 현재 입력된 예약 기준입니다.</div>`;
+}
+function utFmtTrend(y,cm){
+  const L = utFacList(); const [mn] = utYears(); const ys=[]; for(let k=mn;k<=y;k++) ys.push(k);
+  const rows = ys.map(k=>{
+    const m2 = k===y ? cm : 12;
+    let r = `<tr><td class="c">${k}${k===y?` (1~${cm}월)`:''}</td>`;
+    L.forEach(f=>{ const c=utCalcR(f[0],k,1,m2); r += `<td class="c"><b>${utF1(c.p)}</b><br><span class="ut-sm">${c.used}/${c.wd}일</span></td><td class="c">${utN(c.people)}명</td>`; });
+    return r+'</tr>';
+  }).join('');
+  let h1='<th rowspan="2">연도</th>', h2='';
+  L.forEach(f=>{ h1+=`<th colspan="2">${f[2]}</th>`; h2+='<th>가동율</th><th>교육인원</th>'; });
+  const bars = L.map(f=>`<div class="ut-sec" style="margin-top:10px">${f[2]}</div><div class="ut-trend">`+ys.map(k=>{ const c=utCalcR(f[0],k,1,k===y?cm:12);
+    return `<div class="col"><div class="v">${c.p.toFixed(0)}%</div><div class="b"><i style="height:${Math.min(100,c.p)}%;background:${UT_COLOR[f[0]]}"></i></div><div class="x">${String(k).slice(2)}${k===y?'*':''}</div></div>`; }).join('')+'</div>').join('');
+  return `<div class="ut-sec">연도별 가동율 · 교육인원 추이</div>${bars}<table class="rpt-table" style="margin-top:10px"><thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${rows}</tbody></table>
+    <div class="rpt-note">※ * 표시 연도는 1~${cm}월 현재 누계입니다.</div>`;
+}
+function utFmtBasis(y,cm){
+  const yrs = []; const [mn] = utYears(); for(let k=mn;k<=y;k++) yrs.push(k);
+  const wd = yrs.map(k=>`<td class="c">${utWorkdays(k,1,12)}일</td>`).join('');
+  return `<div class="ut-sec">가동율 산정 기준</div>
+  <table class="rpt-table"><thead><tr><th style="width:22%">구분</th><th>기준</th></tr></thead><tbody>
+  <tr><td>가동율</td><td>사용일수(중복 제외) ÷ 근무일수 × 100</td></tr>
+  <tr><td>근무일수</td><td>평일(월~금) − 공휴일(대체공휴일 포함)</td></tr>
+  <tr><td>WAVEHILL</td><td>교육만 산정 (평일·주말 교육 모두 사용일에 포함)</td></tr>
+  <tr><td>무의연수원 · 인등산</td><td>교육 + 개인휴양 산정 (평일·주말 모두), 같은 날 겹치면 1일로 계산</td></tr>
+  <tr><td>무의연수원 2022년</td><td>1~4월 생활치료센터 운영 → 5~12월 기준 (근무일 ${utWorkdays(2022,5,12)}일)</td></tr>
+  <tr><td>사전세팅 · 리허설</td><td>교육(대분류=교육)으로 포함</td></tr>
+  <tr><td>주말·공휴일 사용</td><td>분자(사용일)에만 포함 → 월별 가동율은 100% 초과 가능</td></tr>
+  <tr><td>연말 예상</td><td>A 입력된 예약만 / B 전년 같은 기간 수준 / C 현재 누계 비율 유지</td></tr>
+  <tr><td>기준월</td><td>오늘 기준 전월말까지 확정 실적(화면에서 변경 가능)</td></tr></tbody></table>
+  <div class="ut-sec">연도별 연간 근무일수</div>
+  <table class="rpt-table"><thead><tr>${yrs.map(k=>`<th>${k}년</th>`).join('')}</tr></thead><tbody><tr>${wd}</tr></tbody></table>
+  <div class="rpt-note">※ 위 기준은 기존 정리파일(종합 시트) 및 자동화 프로그램(보고서 PPT)과 동일합니다. 데이터는 예약현황(data.json) 갱신 시 자동 재계산됩니다.</div>`;
+}
+// ===== [2026-11-03] 통계 양식 (현재 데이터의 분류별 현황) =====
+function utRecs(y,m1,m2){
+  const keys = utFacList().map(f=>f[0]);
+  return (reservations||[]).filter(r=>{
+    if(!r.startDate || r.category1==='시설운영' || !keys.includes(r.facility)) return false;
+    if(+r.startDate.slice(0,4)!==y) return false;
+    const m = +r.startDate.slice(5,7); return m>=m1 && m<=m2;
+  });
+}
+function utAgg(recs, keyFn){
+  const M = new Map();
+  recs.forEach(r=>{
+    const k = keyFn(r) || '(미분류)';
+    const o = M.get(k) || {n:0, days:0, ppl:0, tot:0};
+    o.n++; o.days += (+r.days||1); if(r.category1==='교육'){ o.ppl += (+r.participants||0); o.tot += (+r.totalParticipants||0); }
+    M.set(k,o);
+  });
+  return M;
+}
+const UT_DIMS = {
+  facility:{label:'시설별 사용 현황', col:'시설', fn:r=>(UT_FACS.find(f=>f[0]===r.facility)||[])[2]},
+  cat1:{label:'대분류별 현황', col:'대분류', fn:r=>r.category1},
+  cat2:{label:'중분류별 현황', col:'중분류', fn:r=>r.category2},
+  eduType:{label:'교육 형태별 현황', col:'교육 형태', fn:r=>r.eduType},
+  company:{label:'회사별 현황 (멤버사별 사용 횟수)', col:'회사', fn:r=>r.company, top:25}
+};
+function utFmtDim(dim){
+  return function(y,cm){
+    const D = UT_DIMS[dim];
+    const cur = utAgg(utRecs(y,1,cm), D.fn), prev = utAgg(utRecs(y-1,1,cm), D.fn);
+    const keys = [...new Set([...cur.keys(), ...prev.keys()])];
+    const z = {n:0,days:0,ppl:0,tot:0};
+    keys.sort((a,b)=>((cur.get(b)||z).n - (cur.get(a)||z).n) || ((prev.get(b)||z).n - (prev.get(a)||z).n));
+    let shown = keys, etc = null;
+    if(D.top && keys.length > D.top){
+      shown = keys.slice(0,D.top);
+      etc = keys.slice(D.top).reduce((a,k)=>{ [cur.get(k)||z].forEach(o=>{a.c.n+=o.n;a.c.days+=o.days;a.c.ppl+=o.ppl;a.c.tot+=o.tot;}); [prev.get(k)||z].forEach(o=>{a.p.n+=o.n;a.p.days+=o.days;a.p.ppl+=o.ppl;a.p.tot+=o.tot;}); return a; }, {c:{...z},p:{...z}});
+    }
+    const totN = [...cur.values()].reduce((a,o)=>a+o.n,0) || 1;
+    const maxN = Math.max(1, ...[...cur.values()].map(o=>o.n));
+    const diff = (a,b)=> a===b ? '-' : (a>b?'▲':'▼')+Math.abs(a-b);
+    const row = (k,c,p)=>`<tr><td>${escHtml(k)}</td><td class="c"><b>${c.n}</b></td><td class="c">${(c.n/totN*100).toFixed(1)}%</td><td style="width:16%">${utBar(c.n/maxN*100)}</td><td class="c">${utN(c.days)}</td><td class="c">${utN(c.ppl)}</td><td class="c">${utN(c.tot)}</td><td class="c">${p.n}</td><td class="c">${diff(c.n,p.n)}</td></tr>`;
+    let body = shown.map(k=>row(k,cur.get(k)||z,prev.get(k)||z)).join('');
+    if(etc) body += row(`기타 ${keys.length-D.top}개`, etc.c, etc.p);
+    const sum = (M,f)=>[...M.values()].reduce((a,o)=>a+o[f],0);
+    body += `<tr class="ut-tot"><td><b>합계</b></td><td class="c"><b>${sum(cur,'n')}</b></td><td class="c">100%</td><td></td><td class="c"><b>${utN(sum(cur,'days'))}</b></td><td class="c"><b>${utN(sum(cur,'ppl'))}</b></td><td class="c"><b>${utN(sum(cur,'tot'))}</b></td><td class="c"><b>${sum(prev,'n')}</b></td><td class="c">${diff(sum(cur,'n'),sum(prev,'n'))}</td></tr>`;
+    return `<div class="ut-sec">${D.label} — ${y}년 1~${cm}월 (${y-1}년 같은 기간 대비)</div>
+    <table class="rpt-table"><thead><tr><th>${D.col}</th><th>${y}<br>건수</th><th>비중</th><th></th><th>사용일수</th><th>교육인원(명)</th><th>연인원(명·일)</th><th>${y-1}<br>건수</th><th>증감</th></tr></thead><tbody>${body}</tbody></table>
+    <div class="rpt-note">※ 건수=예약(과정) 건수, 사용일수=건별 사용일수 합, 인원은 대분류=교육 건 기준(가동율 화면과 동일). 시설운영 건 제외. 시설·기준월 선택에 따라 변동됩니다.</div>`;
+  };
+}
+function utFmtMonthPeople(y,cm){
+  const L = utFacList();
+  const get = (yy,m,fk,f)=> utRecs(yy,m,m).filter(r=>r.facility===fk && r.category1==='교육').reduce((a,r)=>a+(+r[f]||0),0);
+  const mk = (title,f,unit)=>{
+    let max = 1; const data = [];
+    for(let m=1;m<=12;m++){ const c = L.reduce((a,x)=>a+get(y,m,x[0],f),0), p = L.reduce((a,x)=>a+get(y-1,m,x[0],f),0); data.push([c,p]); max=Math.max(max,c,p); }
+    const rows = data.map((d,i)=>`<tr${i+1>cm?' class="ut-future"':''}><td class="c">${i+1}월</td>${L.map(x=>`<td class="c">${utN(get(y,i+1,x[0],f))}</td>`).join('')}<td class="c"><b>${utN(d[0])}</b></td>
+      <td style="width:26%"><div class="ut-bar" style="height:6px"><i style="width:${d[0]/max*100}%;background:#1a56db"></i></div><div class="ut-bar" style="height:6px;margin-top:2px"><i style="width:${d[1]/max*100}%;background:#b7bfd6"></i></div></td><td class="c">${utN(d[1])}</td></tr>`).join('');
+    const tc = data.slice(0,cm).reduce((a,d)=>a+d[0],0), tp = data.slice(0,cm).reduce((a,d)=>a+d[1],0);
+    return `<div class="ut-sec">${title} (${unit})</div><table class="rpt-table"><thead><tr><th>월</th>${L.map(x=>`<th>${x[2]}</th>`).join('')}<th>${y} 합계</th><th>${y} ▬ vs ${y-1} ▬</th><th>${y-1} 합계</th></tr></thead><tbody>${rows}
+      <tr class="ut-tot"><td class="c"><b>1~${cm}월</b></td>${L.map(x=>`<td class="c"><b>${utN(utRecs(y,1,cm).filter(r=>r.facility===x[0] && r.category1==='교육').reduce((a,r)=>a+(+r[f]||0),0))}</b></td>`).join('')}<td class="c"><b>${utN(tc)}</b></td><td class="c">${tc>=tp?'▲':'▼'}${utN(Math.abs(tc-tp))}</td><td class="c"><b>${utN(tp)}</b></td></tr></tbody></table>`;
+  };
+  return mk('월별 연인원 추이','totalParticipants','명·일') + mk('월별 교육인원 추이','participants','명') +
+    '<div class="rpt-note">※ 월은 예약 시작일 기준. 진한 막대=선택 연도, 연한 막대=전년. 기준월 이후(회색)는 현재 입력된 예약분입니다.</div>';
+}
+function utFmtYearCompare(y,cm){
+  const L = utFacList(); const [mn] = utYears(); const ys=[]; for(let k=mn;k<=y;k++) ys.push(k);
+  const mrow = (label,fn)=>`<tr><td>${label}</td>${ys.map(k=>`<td class="c">${fn(k)}</td>`).join('')}</tr>`;
+  const recs = k=>utRecs(k,1,k===y?cm:12);
+  const sumF = (k,f)=>utN(recs(k).filter(r=>r.category1==='교육').reduce((a,r)=>a+(+r[f]||0),0));
+  const cat = (k,c)=>recs(k).filter(r=>r.category1===c).length;
+  const cats = [...new Set(ys.flatMap(k=>recs(k).map(r=>r.category1||'(미분류)')))];
+  return `<div class="ut-sec">연도별 비교 (${y}년은 1~${cm}월 현재 누계)</div>
+  <table class="rpt-table"><thead><tr><th>항목</th>${ys.map(k=>`<th>${k}${k===y?'*':''}</th>`).join('')}</tr></thead><tbody>
+  ${mrow('가동율 합산(시설 평균)', k=>{ const v=L.map(f=>utCalcR(f[0],k,1,k===y?cm:12).p); return utF1(v.reduce((a,b)=>a+b,0)/v.length); })}
+  ${L.map(f=>mrow(f[2]+' 가동율',k=>utF1(utCalcR(f[0],k,1,k===y?cm:12).p))).join('')}
+  ${mrow('예약 건수 합계',k=>recs(k).length)}
+  ${cats.map(c=>mrow('· '+c+' 건수',k=>recs(k).filter(r=>(r.category1||'(미분류)')===c).length)).join('')}
+  ${mrow('사용일수 합계',k=>utN(recs(k).reduce((a,r)=>a+(+r.days||1),0)))}
+  ${mrow('교육인원(명)',k=>sumF(k,'participants'))}
+  ${mrow('연인원(명·일)',k=>sumF(k,'totalParticipants'))}
+  ${L.map(f=>mrow(f[2]+' 교육인원',k=>utN(utCalcR(f[0],k,1,k===y?cm:12).people))).join('')}
+  </tbody></table><div class="rpt-note">※ 연도별 가동율은 정리파일 기준(사용일수 ÷ 근무일). 건수·사용일수·인원은 예약 시작일 기준 집계입니다.</div>`;
+}
+// ===== [2026-11-03] 종합 보고 (최초 양식) — 실시간 =====
+const UT_REP_COLOR = UT_COLOR;
+function utTopCompanies(n){
+  const keys = UT_FACS.map(f=>f[0]); const tot = {}, per = {};
+  (reservations||[]).forEach(r=>{
+    if(r.category1!=='교육' || !keys.includes(r.facility) || !r.company) return;
+    const d = +r.days||1; tot[r.company]=(tot[r.company]||0)+d;
+    (per[r.company]=per[r.company]||{})[r.facility]=((per[r.company]||{})[r.facility]||0)+d;
+  });
+  const names = Object.keys(tot).sort((a,b)=>tot[b]-tot[a]).slice(0,n);
+  return {names, per, tot};
+}
+function utSvgAxis(W,H,pad,max,steps){
+  let s=''; for(let i=0;i<=steps;i++){ const v=max*i/steps, y=H-pad.b-(H-pad.t-pad.b)*i/steps;
+    s+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y}" y2="${y}" stroke="#e3e6ee"/><text x="${pad.l-5}" y="${y+3}" font-size="9" fill="#888" text-anchor="end">${Math.round(v)}</text>`; }
+  return s;
+}
+function utSvgLine(cats, series, max){
+  const W=660,H=190,pad={l:34,r:12,t:12,b:26}, n=cats.length, gx=i=>pad.l+(W-pad.l-pad.r)*(i+.5)/n, gy=v=>H-pad.b-(H-pad.t-pad.b)*v/max;
+  let s=utSvgAxis(W,H,pad,max,5);
+  cats.forEach((c,i)=>{ s+=`<text x="${gx(i)}" y="${H-8}" font-size="10" fill="#555" text-anchor="middle">${c}</text>`; });
+  series.forEach(se=>{
+    s+=`<polyline fill="none" stroke="${se.color}" stroke-width="2.5" points="${se.vals.map((v,i)=>gx(i)+','+gy(v)).join(' ')}"/>`;
+    se.vals.forEach((v,i)=>{
+      const all = series.map(o=>o.vals[i]); let dx=0, dy=-8, anc='middle';
+      if(v>=Math.max(...all)){ dy=-8; } else if(v<=Math.min(...all)){ dy=16; } else { dx = (i===n-1)? -10 : 10; dy=4; anc = (i===n-1)? 'end' : 'start'; }
+      s+=`<circle cx="${gx(i)}" cy="${gy(v)}" r="4" fill="${se.color}"/><text x="${gx(i)+dx}" y="${gy(v)+dy}" font-size="9.5" font-weight="700" fill="${se.color}" text-anchor="${anc}">${v.toFixed(0)}%</text>`; });
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
+}
+function utSvgStack(cats, series, max){
+  const W=660,H=190,pad={l:34,r:12,t:12,b:26}, n=cats.length, bw=(W-pad.l-pad.r)/n*0.5, gy=v=>(H-pad.t-pad.b)*v/max;
+  let s=utSvgAxis(W,H,pad,max,4);
+  cats.forEach((c,i)=>{ const x=pad.l+(W-pad.l-pad.r)*(i+.5)/n; s+=`<text x="${x}" y="${H-8}" font-size="10" fill="#555" text-anchor="middle">${c}</text>`;
+    let acc=0; series.forEach(se=>{ const v=se.vals[i], h=gy(v), y=H-pad.b-gy(acc)-h; acc+=v;
+      s+=`<rect x="${x-bw/2}" y="${y}" width="${bw}" height="${h}" fill="${se.color}"/>`+(h>11?`<text x="${x}" y="${y+h/2+3}" font-size="9" fill="#fff" font-weight="700" text-anchor="middle">${v}</text>`:''); }); });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
+}
+function utSvgCluster(cats, series, max){
+  const W=660,H=190,pad={l:34,r:12,t:16,b:26}, n=cats.length, k=series.length, gw=(W-pad.l-pad.r)/n, bw=gw*0.7/k, gy=v=>(H-pad.t-pad.b)*v/max;
+  let s=utSvgAxis(W,H,pad,max,4);
+  cats.forEach((c,i)=>{ const x0=pad.l+gw*i+gw*0.15; s+=`<text x="${pad.l+gw*(i+.5)}" y="${H-8}" font-size="10" fill="#555" text-anchor="middle">${c}</text>`;
+    series.forEach((se,j)=>{ const v=se.vals[i], h=gy(v), x=x0+bw*j; s+=`<rect x="${x}" y="${H-pad.b-h}" width="${bw-1}" height="${h}" fill="${se.color}"/><text x="${x+bw/2}" y="${H-pad.b-h-3}" font-size="8.5" font-weight="700" fill="#333" text-anchor="middle">${v}</text>`; }); });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
+}
+function utFmtReport(y,cm){
+  const L = UT_FACS; const [mn] = utYears(); const ys=[]; for(let k=mn;k<=y;k++) ys.push(k);
+  const lab = ys.map(k=>k===y?`${k}(~${cm}월)`:String(k));
+  const cur = {}, prv = {};
+  L.forEach(f=>{ cur[f[0]]=utCalcR(f[0],y,1,cm); prv[f[0]]=utCalcR(f[0],y-1,1,12); });
+  const cards = L.map(f=>{ const c=cur[f[0]], d=c.p-prv[f[0]].p;
+    return `<div class="ut-card" style="border-top:4px solid ${UT_REP_COLOR[f[0]]}"><div class="nm">${f[1]} · ${y} 가동율</div><div class="big" style="color:${UT_REP_COLOR[f[0]]}">${utF1(c.p)}</div>
+      <div class="prev" style="color:${d>=0?'#1D9E75':'#E24B4A'}">${y-1} 연간 ${utF1(prv[f[0]].p)} 대비 ${d>=0?'+':''}${d.toFixed(1)}%p</div></div>`; }).join('');
+  const rates = L.map(f=>({n:f[2],p:cur[f[0]].p, up:cur[f[0]].p>=prv[f[0]].p}));
+  const best = rates.reduce((a,b)=>b.p>a.p?b:a), worst = rates.reduce((a,b)=>b.p<a.p?b:a);
+  const T = utTopCompanies(6); const tot = T.names.map(n=>T.tot[n]); const share = tot.length? tot.slice(0,3).reduce((a,b)=>a+b,0)/tot.reduce((a,b)=>a+b,0)*100 : 0;
+  const upAll = rates.every(r=>r.up);
+  const ins = `시사점  ${best.n} ${utF1(best.p)}로 가장 높고 ${worst.n} ${utF1(worst.p)}로 가장 낮음. ${upAll?`3개 시설 모두 ${y-1}년 연간 대비 상승.`:`${y-1}년 연간 대비 상승: ${rates.filter(r=>r.up).map(r=>r.n).join(', ')||'없음'}.`} 교육 누계 사용일은 ${T.names.slice(0,3).join('·')} 3개사가 상위 6개사의 ${share.toFixed(0)}%를 차지.`;
+  const rateS = L.map(f=>({color:UT_REP_COLOR[f[0]], name:f[1], vals:ys.map(k=>utCalcR(f[0],k,1,k===y?cm:12).p)}));
+  const usedS = L.map(f=>({color:UT_REP_COLOR[f[0]], name:f[1], vals:ys.map(k=>utCalcR(f[0],k,1,k===y?cm:12).used)}));
+  const compS = L.map(f=>({color:UT_REP_COLOR[f[0]], name:f[1], vals:T.names.map(n=>(T.per[n]||{})[f[0]]||0)}));
+  const legend = L.map(f=>`<span class="ut-lg"><i style="background:${UT_REP_COLOR[f[0]]}"></i>${f[1]}</span>`).join('');
+  const maxStack = Math.max(50, ...ys.map((k,i)=>usedS.reduce((a,s)=>a+s.vals[i],0)));
+  const maxComp = Math.max(10, ...compS.flatMap(s=>s.vals));
+  return `<div class="ut-cards">${cards}</div>
+  <div class="ut-sec">연도별 시설 가동율 추이 (%)</div><div class="ut-chartbox">${utSvgLine(lab,rateS,100)}<div class="ut-legend">${legend}</div></div>
+  <div class="ut-sec">연도별 시설 사용일수 (일, 시설별 구분)</div><div class="ut-chartbox">${utSvgStack(lab,usedS,Math.ceil(maxStack/100)*100)}<div class="ut-legend">${legend}</div></div>
+  <div class="ut-sec">주요 멤버사별 사용일수 (누계, 상위 6개사)</div><div class="ut-chartbox">${utSvgCluster(T.names,compS,Math.ceil(maxComp/100)*100)}<div class="ut-legend">${legend}</div></div>
+  <div class="ut-insight">${escHtml(ins)}</div>
+  <div class="rpt-note">※ 가동율=사용일수(중복 제외)÷근무일수. ${mn}~${y-1}년은 정리파일 연간 보고치, ${y}년은 ${cm}월까지 자동 산정. 데이터가 갱신되면 이 화면도 자동으로 바뀝니다.</div>`;
+}
+
+function renderUtil(){
+  const btn = document.getElementById('utilBtn');
+  if(btn && SHOW_RETREAT) btn.style.display = 'inline-block';
+  const box = document.getElementById('utilView');
+  if(!box || !SHOW_RETREAT || !document.body.classList.contains('util-mode')) return;
+  utInit();
+  const [mn,mx] = utYears();
+  const yOpt = []; for(let k=mx;k>=mn;k--) yOpt.push(`<option value="${k}"${k===utState.year?' selected':''}>${k}년</option>`);
+  const mOpt = []; for(let k=1;k<=12;k++) mOpt.push(`<option value="${k}"${k===utState.cm?' selected':''}>${k}월말</option>`);
+  const fOpt = [['','전체 시설']].concat(UT_FACS.map(f=>[f[0],f[2]])).map(f=>`<option value="${f[0]}"${f[0]===utState.fac?' selected':''}>${f[1]}</option>`).join('');
+  const fmtOpt = UT_FMTS.map(f=>`<option value="${f[0]}"${f[0]===utState.fmt?' selected':''}>${f[1]}</option>`).join('');
+  const y = utState.year, cm = utState.cm;
+  const fn = {report:utFmtReport, summary:utFmtSummary, forecast:utFmtForecast, detail:utFmtDetail, monthly:utFmtMonthly, trend:utFmtTrend, basis:utFmtBasis, facility:utFmtDim('facility'), cat1:utFmtDim('cat1'), cat2:utFmtDim('cat2'), eduType:utFmtDim('eduType'), company:utFmtDim('company'), people:utFmtMonthPeople, yearcmp:utFmtYearCompare}[utState.fmt];
+  const titles = {report:'시설 가동율 종합 보고', summary:'시설 가동율 현황', forecast:'시설 가동율 현재·연말 예상', detail:'시설 가동율 산정 내역', monthly:'시설 월별 가동율', trend:'시설 연도별 가동율 추이', basis:'시설 가동율 산정 기준', facility:'시설별 사용 현황', cat1:'대분류별 현황', cat2:'중분류별 현황', eduType:'교육 형태별 현황', company:'회사별 현황', people:'월별 인원 추이', yearcmp:'연도별 종합 비교'};
+  const scope = FIXED_FACILITY ? (UT_FACS.find(f=>f[0]===FIXED_FACILITY)||[])[2] : (utState.fac ? (UT_FACS.find(f=>f[0]===utState.fac)||[])[2] : '전체 시설');
+  box.innerHTML = `
+    <div class="ut-ctl no-print">
+      <label>양식 <select onchange="utSet('fmt',this.value)">${fmtOpt}</select></label>
+      <label>연도 <select onchange="utSet('year',this.value)">${yOpt.join('')}</select></label>
+      <label>기준월 <select onchange="utSet('cm',this.value)">${mOpt.join('')}</select></label>
+      ${FIXED_FACILITY?'':`<label>시설 <select onchange="utSet('fac',this.value)">${fOpt}</select></label>`}
+      <span class="sp"></span>
+      <button onclick="downloadUtil('xls')">⬇ 엑셀로 받기</button><button onclick="window.print()">🖨 인쇄</button>
+    </div>
+    <div id="utilDoc">
+      <h2>${y}년 ${titles[utState.fmt]}</h2>
+      <div class="sub">${escHtml(scope)} · 기준 ${y}년 ${cm}월말 · 조회일 ${dateStr(new Date())} · 작성 시설담당 황병식 · 예약 데이터 변경 시 자동 재계산</div>
+      ${fn(y,cm)}
+    </div>`;
+}
+function downloadUtil(kind){
+  const src = document.getElementById('utilDoc'); if(!src) return;
+  const doc = src.cloneNode(true);
+  doc.querySelectorAll('table.rpt-table').forEach(t=>{ t.setAttribute('border','1'); t.setAttribute('cellspacing','0'); t.setAttribute('cellpadding','4'); t.setAttribute('width','100%'); });
+  doc.querySelectorAll('.ut-bar,.ut-trend').forEach(e=>e.remove());
+  const css = 'body{font-family:"맑은 고딕",sans-serif;font-size:11pt} h2{font-size:16pt} .sub,.rpt-note,.ut-sm{font-size:9pt;color:#555} .ut-sec{font-size:12pt;font-weight:bold;margin-top:14px} table{border-collapse:collapse} th,td{border:1px solid #666;padding:4px 8px} th{background:#eef1f8} td.c{text-align:center} .ut-card{border:1px solid #999;padding:6px;display:inline-block;width:30%}.big{font-size:18pt;font-weight:bold}';
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>'+css+'</style></head><body>'+doc.innerHTML+'</body></html>';
+  const blob = new Blob(['﻿'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `가동율_${utState.fmt}_${utState.year}-${String(utState.cm).padStart(2,'0')}.${kind}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
 async function pollForUpdates(){
   try{
     const res = await fetch('data.json', {cache:'no-store'});
@@ -578,7 +1053,7 @@ function fitReportPrint(){
   const h = d.scrollHeight;
   if(h > avail) d.style.zoom = avail / h;
 }
-window.addEventListener('beforeprint', ()=>{ if(document.body.classList.contains('report-mode')) fitReportPrint(); else fitPrintLayout(); });
+window.addEventListener('beforeprint', ()=>{ if(document.body.classList.contains('util-mode')) return; if(document.body.classList.contains('report-mode')) fitReportPrint(); else fitPrintLayout(); });
 window.addEventListener('afterprint', ()=>{
   const rd = document.getElementById('rptDoc'); if(rd) rd.style.zoom = '';
   const container = document.querySelector('.site-view-container');
