@@ -65,14 +65,22 @@ footer{text-align:center;padding:16px;color:#999;font-size:11px}
   /* [2026-09-02] 내용이 1장 안에 다 들어가는 경우에만(JS가 판정) 위아래 중앙정렬 +
      남는 여백만큼 확대. 1장을 넘는 경우엔 이 클래스가 안 붙어서 위 기본값(block)이 유지되어
      범례/제목이 잘리지 않고 자연스럽게 2장으로 이어짐. */
-  body.print-fits{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  body.print-fits .site-view-container{ margin:auto; display:flex; flex-direction:column; justify-content:center; }
+  /* [2026-11-04] flex 중앙정렬은 인쇄 쪽나눔을 깨뜨려 마지막 주가 2쪽으로 넘어갔음 → block 배치 + 가로 중앙만 */
+  body.print-fits{ display:block; }
+  body.print-fits .site-view-container{ display:block; margin:0 auto; }
 
   .site-event-row td{ min-height:80px !important; }
   .site-daynum-row td{ height:36px !important; font-size:15px !important; }
   .site-event-pill{ font-size:14px !important; padding:9px 10px !important; line-height:1.5 !important; }
   .site-facility-col{ font-size:13px !important; }
 }
+/* [2026-11-04] 인쇄 높이 측정용: 인쇄 시 적용되는 달력 크기 규칙을 화면에서도 똑같이 재현(body.pm) → 정확한 1장 맞춤 */
+body.pm .site-view-container{ padding:0; overflow:visible; width:1062px; margin:0 auto; }
+body.pm .site-table{ min-width:0 !important; width:100% !important; table-layout:fixed; margin:auto; }
+body.pm .site-event-row td{ min-height:80px !important; }
+body.pm .site-daynum-row td{ height:36px !important; font-size:15px !important; }
+body.pm .site-event-pill{ font-size:14px !important; padding:9px 10px !important; line-height:1.5 !important; }
+body.pm .site-facility-col{ font-size:13px !important; }
 /* [2026-10-27] 월간 보고 화면 (관리용 전용) */
 .rpt-btn{background:#1a56db;color:#fff;border:0;border-radius:16px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;display:none}
 .rpt-btn.on{background:#111827}
@@ -1027,24 +1035,37 @@ window.addEventListener('load', ()=>{
 // 들어가도록 축소 폭 제한(0.3)을 없앰. 반대로 웨이브힐/무의도/인등산처럼 내용이 짧아 여백이
 // 남는 경우엔 페이지를 꽉 채우도록 확대(최대 2.2배)하는 기능을 추가.
 function fitPrintLayout(){
+  // [2026-11-04 재작성] 인쇄 엔진은 CSS zoom을 무시하고, transform 만으로는 쪽나눔이 원래 높이로 계산돼
+  // 마지막 주가 2쪽으로 넘어감 → "높이를 줄인 고정 상자(wrapper, overflow:hidden) 안에 transform:scale 한 달력"을 넣어 항상 1장.
   const container = document.querySelector('.site-view-container');
   if (!container) return;
-  container.style.zoom = '';
-  document.body.classList.remove('print-fits');
-
+  resetPrintFit();
   const headerH = (document.querySelector('header')?.offsetHeight || 0);
   const navH = (document.querySelector('.app-nav')?.offsetHeight || 0);
-  // A4 가로(297×210mm) 기준, 여백 8mm×2 뺀 실제 인쇄 가능 높이 ≈ 733px(96dpi 환산).
-  // 브라우저마다 계산이 조금씩 달라 오차가 있을 수 있어 8% 안전 여유를 더 뺌.
-  const pageHeightPx = Math.round((733 - headerH - navH - 16) * 0.92);
+  const pageHeightPx = (733 - headerH - navH - 24) * 0.88;   // A4 가로 인쇄 가능 높이 733px, 안전 여유 포함
+  document.body.classList.add('pm');                       // 인쇄 레이아웃 그대로 재현해서 높이 측정
   const contentHeight = container.scrollHeight;
-
+  document.body.classList.remove('pm');
   if (contentHeight > 0 && pageHeightPx > 0) {
-    let scale = pageHeightPx / contentHeight;
-    if (scale > 1) scale = Math.min(scale, 2.2);  // 내용이 짧을 땐 확대해서 1장을 꽉 채움(과확대 방지 상한)
-    container.style.zoom = scale;
+    const scale = Math.min(1, pageHeightPx / contentHeight);
+    if (scale < 1) {
+      const w = document.createElement('div');
+      w.id = 'printFitWrap';
+      w.style.cssText = 'height:' + Math.ceil(contentHeight * scale) + 'px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;';
+      container.parentNode.insertBefore(w, container);
+      w.appendChild(container);
+      container.style.transformOrigin = 'top center';
+      container.style.transform = 'scale(' + scale + ')';
+    }
   }
-  document.body.classList.add('print-fits');  // 축소했든 확대했든, 이제 1장 안에 들어가므로 중앙정렬
+  document.body.classList.add('print-fits');
+}
+function resetPrintFit(){
+  const w = document.getElementById('printFitWrap');
+  const c = document.querySelector('.site-view-container');
+  if (w && c){ w.parentNode.insertBefore(c, w); w.remove(); }
+  if (c){ c.style.transform = ''; c.style.transformOrigin = ''; c.style.marginBottom = ''; c.style.zoom = ''; c.style.height = ''; c.style.overflow = ''; }
+  document.body.classList.remove('print-fits');
 }
 function fitReportPrint(){
   const d = document.getElementById('rptDoc');
@@ -1057,9 +1078,7 @@ function fitReportPrint(){
 window.addEventListener('beforeprint', ()=>{ if(document.body.classList.contains('util-mode')) return; if(document.body.classList.contains('report-mode')) fitReportPrint(); else fitPrintLayout(); });
 window.addEventListener('afterprint', ()=>{
   const rd = document.getElementById('rptDoc'); if(rd) rd.style.zoom = '';
-  const container = document.querySelector('.site-view-container');
-  if (container){ container.style.zoom = ''; }
-  document.body.classList.remove('print-fits');
+  resetPrintFit();
 });
 </script>
 </body>
